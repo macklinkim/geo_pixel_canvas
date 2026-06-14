@@ -1,5 +1,7 @@
 # Geo Pixel Board
 
+**English** · [한국어](README.ko.md)
+
 **A world map where every place is its own collaborative pixel canvas — and you can only paint the places you physically stand in.**
 
 Anyone can pan the globe and watch pixel‑art graffiti appear in real time. But to *draw* on a board you have to actually be there: the server gates every write on your live geolocation. The result is a map of place‑locked canvases — a subway exit, a campus quad, a festival square — each a small shared artwork that only the people who go there can edit.
