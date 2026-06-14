@@ -180,3 +180,29 @@
 - 접근성: 장식 요소 `aria-hidden`, `prefers-reduced-motion` 시 애니메이션 정지.
 - 검증: `pnpm check` 0 errors, `pnpm build` 성공. Playwright로 desktop(1280)·mobile(390) 첫 화면 +
   하위 섹션 스크린샷 확인(가로 스크롤 없음, CTA 첫 화면 노출), "Start painting" 클릭 → /app 진입 확인.
+
+## 2026-06-14 — 지도 베이스맵 선택(항공/상세/심플) + 상세지도 복원
+
+- 증상: 베이스맵이 항공(satellite)과 밋밋한 지도(positron)만 보이고, 초기의 건물/POI가
+  보이던 상세 지도가 사라짐. 원인: `MAP_STYLE_URL`이 OpenFreeMap `liberty`→`positron`으로 바뀜.
+- 해결(프론트엔드 전용): 단일 토글(지도↔항공)을 **3종 베이스맵 선택기**로 교체.
+  - `client/src/lib/map/mapStyle.ts`: `BaseMapId`(satellite/detailed/simple) + `BASEMAPS` 카탈로그,
+    `DEFAULT_BASEMAP="satellite"`, `buildSatelliteStyle()`(Esri 단독 스타일), liberty/positron URL 상수.
+  - `client/src/lib/map/mapController.ts`: satellite 오버레이 토글 제거 → `setBaseMap(id)`가
+    `map.setStyle()`로 베이스 전환(룸 핀은 DOM 마커라 setStyle에도 유지됨). 선택값은
+    `localStorage('gpb:basemap')`에 저장, 기본 항공. simple = 서버 설정 `MAP_STYLE_URL`(positron) 사용.
+  - `client/src/components/MapView.svelte`: 좌하단에 `항공/상세/심플` 세그먼트 컨트롤(active 강조).
+- 기본값: 첫 방문은 **항공뷰**, 이후 선택 기억. 상세 = liberty(스크린샷의 그 지도), 심플 = positron.
+- 어트리뷰션 유지(Esri/OpenFreeMap·OSM). worker/wrangler/프로토콜/DB 변경 없음.
+- 검증: `pnpm check` 0 errors. dev(5175)에서 항공(기본)→상세(liberty 건물/라벨 렌더)→심플(positron)
+  전환 스크린샷 확인. (liberty 스프라이트의 office/swimming_pool 등 누락 경고는 업스트림 스타일
+  자체의 경미한 사항, 렌더 정상. `/api/rooms` 500은 로컬 D1 미마이그레이션 — 본 변경과 무관.)
+
+## 2026-06-14 — Favicon 추가 (브랜드 마크 일치)
+
+- `public/favicon.svg` 신규 + `index.html`에 `<link rel="icon" type="image/svg+xml">`.
+- 디자인: 랜딩 헤더 로고(.logo-glyph)와 **동일한 마크** — 크림 클레이 칩 위 검정 타일 +
+  픽셀 5개(모서리 빨강/노랑/초록/파랑 + 중앙 보라). 색·배치 모두 헤더 로고와 일치해
+  탭 ↔ 인앱 로고가 하나의 정체성. 아트 PALETTE 색을 그대로 사용.
+- SVG 단일 파일(모던 브라우저용). 흰/검정/크림 탭 배경 모두에서 가독 확인(16~128px 프리뷰).
+- 검증: `pnpm check` 0 errors(이전 단계), `pnpm build` 성공 → `dist/client/favicon.svg` 번들 확인.

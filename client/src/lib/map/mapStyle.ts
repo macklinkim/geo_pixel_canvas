@@ -18,13 +18,37 @@ export const SATELLITE_SOURCE: RasterSourceSpecification = {
 export const SATELLITE_SOURCE_ID = "satellite";
 export const SATELLITE_LAYER_ID = "satellite-layer";
 
+// Public-grade keyless OpenFreeMap vector styles.
+// liberty = detailed OSM-bright basemap (buildings, POIs, labels);
+// positron = clean minimal light basemap.
+export const OPENFREEMAP_LIBERTY = "https://tiles.openfreemap.org/styles/liberty";
+export const OPENFREEMAP_POSITRON = "https://tiles.openfreemap.org/styles/positron";
+
+/** Selectable base maps, in display order. */
+export type BaseMapId = "satellite" | "detailed" | "simple";
+
+export const BASEMAPS: { id: BaseMapId; label: string }[] = [
+  { id: "satellite", label: "항공" },
+  { id: "detailed", label: "상세" },
+  { id: "simple", label: "심플" },
+];
+
+export const DEFAULT_BASEMAP: BaseMapId = "satellite";
+
+/** Standalone aerial style: Esri imagery as the base layer. */
+export function buildSatelliteStyle(): StyleSpecification {
+  return {
+    version: 8,
+    sources: { [SATELLITE_SOURCE_ID]: SATELLITE_SOURCE },
+    layers: [{ id: SATELLITE_LAYER_ID, type: "raster", source: SATELLITE_SOURCE_ID }],
+  } satisfies StyleSpecification;
+}
+
 /**
- * If a style URL is configured (server-controlled tile provider), use it.
- * Otherwise fall back to the OSM raster tiles — for low-traffic dev/demo only
- * (see project_plan_draft.md §8). Attribution is always rendered.
+ * Dev/demo fallback when no vector style URL is configured: plain OSM raster.
+ * Low-traffic only (see project_plan_draft.md §8). Attribution always rendered.
  */
-export function buildStyle(styleUrl: string | null): StyleSpecification | string {
-  if (styleUrl) return styleUrl;
+export function osmFallbackStyle(): StyleSpecification {
   return {
     version: 8,
     sources: {

@@ -1,10 +1,11 @@
 import maplibregl from "maplibre-gl";
-import type { Map as MLMap } from "maplibre-gl";
+import type { Map as MLMap, StyleSpecification } from "maplibre-gl";
 import {
-  buildStyle,
-  SATELLITE_SOURCE,
-  SATELLITE_SOURCE_ID,
-  SATELLITE_LAYER_ID,
+  buildSatelliteStyle,
+  OPENFREEMAP_LIBERTY,
+  OPENFREEMAP_POSITRON,
+  DEFAULT_BASEMAP,
+  type BaseMapId,
 } from "./mapStyle";
 
 export interface Bbox {
@@ -27,6 +28,7 @@ interface SavedView {
 const DEFAULT_CENTER: [number, number] = [126.9706, 37.5547]; // Seoul Station [lng,lat]
 const DEFAULT_ZOOM = 16;
 const STORAGE_KEY = "gpb:lastView";
+const BASEMAP_KEY = "gpb:basemap";
 const DEBOUNCE_MS = 350;
 
 function loadView(): SavedView | null {
@@ -38,17 +40,31 @@ function loadView(): SavedView | null {
   }
 }
 
+function loadBaseMap(): BaseMapId {
+  try {
+    const v = localStorage.getItem(BASEMAP_KEY);
+    if (v === "satellite" || v === "detailed" || v === "simple") return v;
+  } catch {
+    /* ignore */
+  }
+  return DEFAULT_BASEMAP;
+}
+
 export class MapController {
   readonly map: MLMap;
   private geolocate!: maplibregl.GeolocateControl;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private satellite = false;
+  /** Server-configured vector style URL, used for the "simple" base map. */
+  private readonly vectorUrl: string | null;
+  private base: BaseMapId;
 
   constructor(container: HTMLElement, styleUrl: string | null, private handlers: MapHandlers) {
+    this.vectorUrl = styleUrl;
+    this.base = loadBaseMap();
     const saved = loadView();
     this.map = new maplibregl.Map({
       container,
-      style: buildStyle(styleUrl),
+      style: this.styleFor(this.base),
       center: saved?.center ?? DEFAULT_CENTER,
       zoom: Math.min(saved?.zoom ?? DEFAULT_ZOOM, 19),
       maxZoom: 19,
@@ -66,10 +82,7 @@ export class MapController {
     });
     this.map.addControl(this.geolocate, "top-right");
 
-    this.map.on("load", () => {
-      this.addSatelliteLayer();
-      this.emitBbox();
-    });
+    this.map.on("load", () => this.emitBbox());
     this.map.on("moveend", () => {
       this.saveView();
       this.emitBbox();
@@ -110,32 +123,30 @@ export class MapController {
     this.map.flyTo({ center: [lng, lat], zoom, essential: true });
   }
 
-  private addSatelliteLayer(): void {
-    if (this.map.getSource(SATELLITE_SOURCE_ID)) return;
-    this.map.addSource(SATELLITE_SOURCE_ID, SATELLITE_SOURCE);
-    this.map.addLayer({
-      id: SATELLITE_LAYER_ID,
-      type: "raster",
-      source: SATELLITE_SOURCE_ID,
-      layout: { visibility: "none" },
-    });
+  private styleFor(id: BaseMapId): StyleSpecification | string {
+    if (id === "satellite") return buildSatelliteStyle();
+    if (id === "detailed") return OPENFREEMAP_LIBERTY;
+    // "simple": server-configured vector style, else the positron default.
+    return this.vectorUrl ?? OPENFREEMAP_POSITRON;
   }
 
-  /** Toggle aerial imagery on top of the base map. Returns the new state. */
-  toggleSatellite(): boolean {
-    this.satellite = !this.satellite;
-    if (this.map.getLayer(SATELLITE_LAYER_ID)) {
-      this.map.setLayoutProperty(
-        SATELLITE_LAYER_ID,
-        "visibility",
-        this.satellite ? "visible" : "none",
-      );
+  get baseMap(): BaseMapId {
+    return this.base;
+  }
+
+  /**
+   * Switch the base map. Room pins are DOM markers and survive setStyle, so the
+   * pin layer does not need to be rebuilt; the saved center/zoom is preserved.
+   */
+  setBaseMap(id: BaseMapId): void {
+    if (id === this.base) return;
+    this.base = id;
+    try {
+      localStorage.setItem(BASEMAP_KEY, id);
+    } catch {
+      /* ignore quota/private-mode errors */
     }
-    return this.satellite;
-  }
-
-  get isSatellite(): boolean {
-    return this.satellite;
+    this.map.setStyle(this.styleFor(id));
   }
 
   destroy(): void {

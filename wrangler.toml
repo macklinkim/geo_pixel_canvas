@@ -16,7 +16,7 @@ run_worker_first = ["/api/*", "/ws/*", "/app"]
 [[d1_databases]]
 binding = "DB"
 database_name = "geo_pixel_board"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "e344b13a-748f-4f45-9cf2-945d5264f131"
 migrations_dir = "worker/migrations"
 
 # One Durable Object instance per geohash room.

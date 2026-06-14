@@ -7,14 +7,15 @@
   import { GEOHASH_PRECISION } from "@shared/constants";
   import type { RoomMeta } from "@shared/room";
   import { getCurrentPosition } from "../lib/geo/browserLocation";
-  import { LocateFixed, Layers, Search, Map as MapIcon, Brush } from "lucide-svelte";
+  import { BASEMAPS, DEFAULT_BASEMAP, type BaseMapId } from "../lib/map/mapStyle";
+  import { LocateFixed, Layers, Search, Brush } from "lucide-svelte";
 
   let container: HTMLDivElement;
   let controller: MapController | null = null;
   let layer: RoomLayer | null = null;
   let reqSeq = 0;
 
-  let satellite = $state(false);
+  let baseMap = $state<BaseMapId>(DEFAULT_BASEMAP);
   let query = $state("");
   let searching = $state(false);
   let searchError = $state(false);
@@ -57,8 +58,9 @@
     }
   }
 
-  function toggleSatellite(): void {
-    satellite = controller?.toggleSatellite() ?? false;
+  function selectBaseMap(id: BaseMapId): void {
+    baseMap = id;
+    controller?.setBaseMap(id);
   }
 
   let locating = $state(false);
@@ -84,6 +86,8 @@
       onMoveEnd: (b) => fetchRooms(b),
       onMapClick: (lat, lng) => app.openRoom(encodeGeohash(lat, lng, GEOHASH_PRECISION)),
     });
+    // Reflect the persisted choice (defaults to aerial) in the selector.
+    baseMap = controller.baseMap;
     layer = new RoomLayer(controller.map, (gh) => app.openRoom(gh));
   });
 
@@ -115,9 +119,19 @@
 </form>
 
 <div class="map-controls">
-  <button class="btn" onclick={toggleSatellite} aria-pressed={satellite}>
-    {#if satellite}<MapIcon size={16} /> 지도{:else}<Layers size={16} /> 항공{/if}
-  </button>
+  <div class="basemap-switch" role="group" aria-label="지도 종류">
+    <Layers size={15} class="basemap-ic" />
+    {#each BASEMAPS as bm (bm.id)}
+      <button
+        class="basemap-opt"
+        class:active={baseMap === bm.id}
+        aria-pressed={baseMap === bm.id}
+        onclick={() => selectBaseMap(bm.id)}
+      >
+        {bm.label}
+      </button>
+    {/each}
+  </div>
   <button class="btn" onclick={() => controller?.locate()}>
     <LocateFixed size={16} /> 내 위치로
   </button>
@@ -178,6 +192,38 @@
   .map-controls .btn {
     box-shadow: var(--shadow);
     background: var(--surface);
+  }
+  .basemap-switch {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 8px 4px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+  }
+  .basemap-switch :global(.basemap-ic) {
+    color: var(--text-dim);
+    flex: none;
+    margin-right: 4px;
+  }
+  .basemap-opt {
+    border: none;
+    background: none;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 7px;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .basemap-opt:hover {
+    color: var(--text);
+  }
+  .basemap-opt.active {
+    background: var(--accent);
+    color: #fff;
   }
   .map-controls .btn.primary {
     background: var(--accent);
