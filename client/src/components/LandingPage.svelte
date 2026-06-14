@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { MapPin, Radar, Radio, ShieldCheck, Palette as PaletteIcon, Users } from "lucide-svelte";
   import { PALETTE } from "@shared/palette";
   import { BOARD_W, BOARD_H, WRITE_RADIUS_M } from "@shared/constants";
 
-  // First-run onboarding. `onenter` hands control back to the map; the intent
+  // First-run onboarding. `onenter` hands control back to the app; the intent
   // lets App decide whether to nudge the location flow ("paint") or just browse.
   let { onenter }: { onenter: (intent: "paint" | "explore") => void } = $props();
 
@@ -13,8 +14,8 @@
   // Each board cell is drawn SCALE×SCALE device pixels on the hero canvas.
   const SCALE = 6;
 
-  // Tiny pixel sprites stamped onto the 96×64 board ('.' = empty cell). Glyphs
-  // map to palette indices so the mock uses the exact production 16-color set.
+  // Tiny pixel sprites stamped onto the board ('.' = empty cell). Glyphs map to
+  // palette indices so the mock uses the exact production color set.
   type Sprite = { x: number; y: number; rows: string[]; map: Record<string, number> };
   // Reusable glyph bitmaps; placements below spread them across the 192×128 board.
   const HEART = [".XX.XX.", "XXXXXXX", "XXXXXXX", ".XXXXX.", "..XXX..", "...X..."];
@@ -32,35 +33,35 @@
   const DIAMOND = ["..D..", ".DDD.", "DDDDD", ".DDD.", "..D.."];
 
   const SPRITES: Sprite[] = [
-    { x: 16, y: 30, map: { X: 2 }, rows: HEART }, // red heart
-    { x: 150, y: 18, map: { Y: 4, K: 0 }, rows: SMILEY }, // yellow smiley
-    { x: 60, y: 84, map: { G: 6, L: 5, T: 15 }, rows: TREE }, // green tree
-    { x: 104, y: 16, map: { S: 4 }, rows: STAR }, // yellow star
-    { x: 168, y: 96, map: { D: 11 }, rows: DIAMOND }, // cyan diamond
-    { x: 120, y: 64, map: { X: 1 }, rows: HEART }, // purple heart
-    { x: 24, y: 96, map: { G: 6, L: 5, T: 15 }, rows: TREE }, // second tree
-    { x: 176, y: 50, map: { S: 3 }, rows: STAR }, // orange star
-    { x: 36, y: 60, map: { D: 10 }, rows: DIAMOND }, // sky-blue diamond
+    { x: 16, y: 30, map: { X: 5 }, rows: HEART }, // red heart
+    { x: 150, y: 18, map: { Y: 7, K: 0 }, rows: SMILEY }, // yellow smiley
+    { x: 60, y: 84, map: { G: 8, L: 17, T: 19 }, rows: TREE }, // green tree
+    { x: 104, y: 16, map: { S: 7 }, rows: STAR }, // yellow star
+    { x: 168, y: 96, map: { D: 10 }, rows: DIAMOND }, // sky-blue diamond
+    { x: 120, y: 64, map: { X: 14 }, rows: HEART }, // purple heart
+    { x: 24, y: 96, map: { G: 8, L: 17, T: 19 }, rows: TREE }, // second tree
+    { x: 176, y: 50, map: { S: 6 }, rows: STAR }, // orange star
+    { x: 36, y: 60, map: { D: 11 }, rows: DIAMOND }, // blue diamond
   ];
 
-  // Fixed accent pixels, spread across the board so the full palette appears.
+  // Fixed accent pixels, spread across the board so the palette reads as full.
   const ACCENTS: [number, number, number][] = [
-    [10, 14, 10],
+    [10, 14, 5],
     [44, 22, 9],
     [86, 44, 7],
-    [112, 52, 11],
-    [140, 78, 5],
-    [40, 112, 3],
-    [78, 116, 4],
-    [100, 104, 1],
-    [132, 112, 6],
+    [112, 52, 13],
+    [140, 78, 6],
+    [40, 112, 9],
+    [78, 116, 7],
+    [100, 104, 14],
+    [132, 112, 8],
     [162, 118, 10],
-    [184, 20, 2],
-    [14, 74, 4],
+    [184, 20, 5],
+    [14, 74, 8],
     [96, 80, 7],
-    [150, 100, 3],
-    [180, 74, 5],
-    [62, 40, 8],
+    [150, 100, 6],
+    [180, 74, 11],
+    [62, 40, 15],
   ];
 
   type Pixel = { x: number; y: number; c: number };
@@ -109,7 +110,7 @@
     // Blinking cursor on the next cell → suggests a live painter at work.
     if (count < pixels.length && blinkOn) {
       const p = pixels[count];
-      ctx.fillStyle = "rgba(17,19,26,0.28)";
+      ctx.fillStyle = "rgba(23,23,23,0.3)";
       ctx.fillRect(p.x * SCALE, p.y * SCALE, SCALE, SCALE);
     }
   }
@@ -156,35 +157,44 @@
 
   // Decorative room pins on the mock map (percent positions, palette colors).
   const PINS = [
-    { top: 22, left: 18, c: PALETTE[7], label: "Riverside Park" },
-    { top: 38, left: 74, c: PALETTE[3], label: null },
-    { top: 64, left: 30, c: PALETTE[5], label: "Campus North" },
-    { top: 72, left: 82, c: PALETTE[2], label: null },
-    { top: 16, left: 58, c: PALETTE[4], label: null },
-    { top: 84, left: 54, c: PALETTE[10], label: null },
-    { top: 50, left: 46, c: PALETTE[1], label: null },
+    { top: 22, left: 18, c: PALETTE[5], label: "Riverside Park" },
+    { top: 38, left: 74, c: PALETTE[10], label: null },
+    { top: 64, left: 30, c: PALETTE[8], label: "Campus North" },
+    { top: 72, left: 82, c: PALETTE[6], label: null },
+    { top: 16, left: 58, c: PALETTE[7], label: null },
+    { top: 84, left: 54, c: PALETTE[14], label: null },
+    { top: 50, left: 46, c: PALETTE[11], label: null },
   ];
 
+  // How-it-works cards. Each carries a clay accent + a lucide icon component.
   const FEATURES = [
     {
       key: "map",
-      title: "Live map rooms",
-      body: "Every place on the map can host its own shared board. Glowing pins show where people are painting right now.",
+      title: "Pick a place",
+      body: "Open the map and tap any spot. Every place on earth can host its own shared board — glowing pins show where people are painting right now.",
+      color: "var(--clay-blue)",
+      icon: MapPin,
     },
     {
       key: "nearby",
-      title: "Nearby-only painting",
-      body: "Viewing is open to everyone. Painting unlocks only when you're physically within 100m of the spot — so each canvas stays truly local.",
+      title: "Paint nearby",
+      body: `Anyone can watch. Painting unlocks only when you're physically within ${WRITE_RADIUS_M}m of the spot, so every canvas stays truly local.`,
+      color: "var(--clay-green)",
+      icon: Radar,
     },
     {
-      key: "board",
-      title: "Real-time pixel board",
-      body: `A shared ${BOARD_W}×${BOARD_H} grid and a fixed 16-color palette. Watch pixels land live as the people around you draw together.`,
+      key: "live",
+      title: "Watch it live",
+      body: `A shared ${BOARD_W}×${BOARD_H} grid and a fixed ${PALETTE.length}-color palette. Watch pixels land in real time as the people around you draw together.`,
+      color: "var(--clay-yellow)",
+      icon: Radio,
     },
     {
       key: "privacy",
-      title: "Privacy-friendly location",
-      body: "Your precise coordinates are used only for the proximity check, then discarded. They're never stored or shown publicly.",
+      title: "Privacy by design",
+      body: "Your precise coordinates are used only for the proximity check, then discarded. They're never stored, logged, or shown to anyone.",
+      color: "var(--clay-purple)",
+      icon: ShieldCheck,
     },
   ];
 
@@ -192,7 +202,7 @@
     "Local murals",
     "Campus games",
     "Festival walls",
-    "Neighborhood messages",
+    "Neighborhood notes",
     "Pop-up exhibitions",
     "Event souvenirs",
   ];
@@ -202,40 +212,44 @@
   <header class="lp-bar">
     <div class="brand">
       <span class="logo-glyph" aria-hidden="true">
-        <svg viewBox="0 0 8 8" width="20" height="20" shape-rendering="crispEdges">
-          <rect width="8" height="8" fill="#11131a" rx="1.5" />
-          <rect x="1" y="1" width="2" height="2" fill={PALETTE[2]} />
-          <rect x="5" y="1" width="2" height="2" fill={PALETTE[4]} />
-          <rect x="1" y="5" width="2" height="2" fill={PALETTE[6]} />
+        <svg viewBox="0 0 8 8" width="22" height="22" shape-rendering="crispEdges">
+          <rect width="8" height="8" fill="#171717" rx="1.5" />
+          <rect x="1" y="1" width="2" height="2" fill={PALETTE[5]} />
+          <rect x="5" y="1" width="2" height="2" fill={PALETTE[7]} />
+          <rect x="1" y="5" width="2" height="2" fill={PALETTE[8]} />
           <rect x="5" y="5" width="2" height="2" fill={PALETTE[10]} />
-          <rect x="3" y="3" width="2" height="2" fill={PALETTE[11]} />
+          <rect x="3" y="3" width="2" height="2" fill={PALETTE[14]} />
         </svg>
       </span>
       <span class="brand-name">Geo Pixel Board</span>
     </div>
-    <button class="lp-skip" onclick={() => onenter("explore")}>Skip intro →</button>
+    <button class="btn btn-sm" onclick={() => onenter("explore")}>Explore rooms</button>
   </header>
 
   <section class="hero">
     <div class="hero-copy">
       <span class="eyebrow"><span class="dot"></span> Live boards in your city</span>
-      <h1>Turn real places into <span class="grad">pixel canvases</span></h1>
+      <h1>Turn real places into <span class="hl">pixel canvases</span></h1>
       <p class="sub">
-        Open the map, find a place nearby, and paint with everyone standing around the
-        same spot.
+        Open the map, find a place near you, and paint together with everyone standing
+        around the same spot. One living canvas per location.
       </p>
       <div class="cta">
         <button class="btn-primary" onclick={() => onenter("paint")}>Start painting</button>
         <button class="btn-ghost" onclick={() => onenter("explore")}>Explore rooms</button>
       </div>
       <ul class="hero-facts">
-        <li>{BOARD_W}×{BOARD_H} board</li>
-        <li>16 colors</li>
-        <li>{WRITE_RADIUS_M}m radius</li>
+        <li><b>{BOARD_W}×{BOARD_H}</b> board</li>
+        <li><b>{PALETTE.length}</b> colors</li>
+        <li><b>{WRITE_RADIUS_M}m</b> write radius</li>
       </ul>
     </div>
 
     <div class="hero-mock">
+      <span class="float-badge fb-rooms" aria-hidden="true"><span class="fb-dot"></span> Live rooms</span>
+      <span class="float-badge fb-colors" aria-hidden="true"><PaletteIcon size={14} strokeWidth={2.6} /> {PALETTE.length} colors</span>
+      <span class="float-badge fb-radius" aria-hidden="true"><MapPin size={14} strokeWidth={2.6} /> {WRITE_RADIUS_M}m to paint</span>
+
       <div class="mini-map" aria-hidden="true">
         {#each PINS as pin (pin.top + "-" + pin.left)}
           <span class="pin" style:top="{pin.top}%" style:left="{pin.left}%" style:--pin={pin.c}>
@@ -243,76 +257,47 @@
           </span>
         {/each}
 
-        <div class="board-modal">
-          <div class="bm-head">
-            <span class="bm-title">
-              <span class="bm-live"></span> Riverside Park
-            </span>
-            <span class="bm-online">{online} online</span>
+        <div class="board-card">
+          <div class="bc-head">
+            <span class="bc-title"><span class="bc-live"></span> Riverside Park</span>
+            <span class="bc-online"><Users size={13} strokeWidth={2.6} /> {online}</span>
           </div>
-          <div class="bm-canvas-wrap">
-            <canvas bind:this={canvasEl} class="bm-canvas"></canvas>
+          <div class="bc-canvas-wrap">
+            <canvas bind:this={canvasEl} class="bc-canvas"></canvas>
           </div>
-          <div class="bm-palette">
+          <div class="bc-palette">
             {#each PALETTE as color, i (i)}
-              <span class="bm-swatch" class:sel={i === 2} style:background={color}></span>
+              <span class="bc-swatch" class:sel={i === 5} style:background={color}></span>
             {/each}
           </div>
-          <div class="bm-foot">
-            <span class="badge ok">● Nearby painting enabled</span>
-            <span class="badge">{WRITE_RADIUS_M}m radius</span>
+          <div class="bc-foot">
+            <span class="tag ok">● Nearby painting on</span>
+            <span class="tag">{WRITE_RADIUS_M}m radius</span>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <a class="scroll-hint" href="#how">How it works ↓</a>
-
   <section class="features" id="how">
-    {#each FEATURES as f (f.key)}
-      <article class="card">
-        <span class="card-icon" aria-hidden="true">
-          {#if f.key === "map"}
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none">
-              <path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
-              <path d="M9 4v14M15 6v14" stroke="currentColor" stroke-width="1.6" />
-              <circle cx="6" cy="11" r="1.4" fill={PALETTE[3]} />
-              <circle cx="18" cy="13" r="1.4" fill={PALETTE[7]} />
-            </svg>
-          {:else if f.key === "nearby"}
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none">
-              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.4" opacity="0.4" />
-              <circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="1.6" />
-              <circle cx="12" cy="12" r="2" fill={PALETTE[5]} />
-            </svg>
-          {:else if f.key === "board"}
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" shape-rendering="crispEdges">
-              <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.6" />
-              <rect x="6" y="6" width="3" height="3" fill={PALETTE[2]} />
-              <rect x="11" y="6" width="3" height="3" fill={PALETTE[4]} />
-              <rect x="6" y="11" width="3" height="3" fill={PALETTE[6]} />
-              <rect x="11" y="11" width="3" height="3" fill={PALETTE[10]} />
-            </svg>
-          {:else}
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none">
-              <rect x="5" y="10" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.6" />
-              <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.6" />
-              <circle cx="12" cy="15" r="1.6" fill={PALETTE[11]} />
-            </svg>
-          {/if}
-        </span>
-        <h3>{f.title}</h3>
-        <p>{f.body}</p>
-      </article>
-    {/each}
+    <h2 class="section-title">How it works</h2>
+    <div class="cards">
+      {#each FEATURES as f (f.key)}
+        {@const Icon = f.icon}
+        <article class="card">
+          <span class="card-icon" style:--accent={f.color} aria-hidden="true">
+            <Icon size={26} strokeWidth={2.4} />
+          </span>
+          <h3>{f.title}</h3>
+          <p>{f.body}</p>
+        </article>
+      {/each}
+    </div>
   </section>
 
   <section class="usecases">
-    <h2>One canvas per place</h2>
-    <p class="usecases-sub">
-      A board is whatever the people standing there make of it.
-    </p>
+    <h2 class="section-title">One canvas per place</h2>
+    <p class="usecases-sub">A board becomes whatever the people standing there make of it.</p>
     <ul class="chips">
       {#each USECASES as u (u)}
         <li>{u}</li>
@@ -321,33 +306,52 @@
   </section>
 
   <section class="cta-bottom">
-    <h2>Find a place. Start painting.</h2>
-    <div class="cta">
-      <button class="btn-primary" onclick={() => onenter("paint")}>Start painting</button>
-      <button class="btn-ghost" onclick={() => onenter("explore")}>Explore rooms</button>
+    <div class="cta-card">
+      <h2>Find a place. Start painting.</h2>
+      <p>Viewing is open to everyone — grab a color when you're nearby.</p>
+      <div class="cta">
+        <button class="btn-primary" onclick={() => onenter("paint")}>Start painting</button>
+        <button class="btn-ghost" onclick={() => onenter("explore")}>Explore rooms</button>
+      </div>
     </div>
   </section>
 
   <footer class="lp-footer">
-    <span>Geo Pixel Board</span>
+    <span class="ft-brand">Geo Pixel Board</span>
     <span class="muted">Location is used only to check if you're close enough to paint — never stored or shown.</span>
   </footer>
 </div>
 
 <style>
+  /* Clay tokens are scoped to the landing only, so the rest of the (dark) app
+     — VerifyGate, RoomPanel, MapView — keeps its own theme untouched. */
   .landing {
+    --cream: #fff7e8;
+    --cream-2: #fff4dc;
+    --ink: #171717;
+    --muted: #5f5a50;
+    --clay-blue: #4f8cff;
+    --clay-yellow: #ffcd75;
+    --clay-green: #3ddc84;
+    --clay-red: #ef5d6b;
+    --clay-purple: #b86bff;
+    --clay-radius: 16px;
+    --clay-shadow: 6px 6px 0 var(--ink);
+    --clay-shadow-sm: 4px 4px 0 var(--ink);
+
     position: absolute;
     inset: 0;
     z-index: 50;
+    overflow-x: hidden;
     overflow-y: auto;
-    background:
-      radial-gradient(1200px 600px at 80% -10%, rgba(65, 166, 246, 0.08), transparent 60%),
-      radial-gradient(900px 500px at 0% 100%, rgba(61, 220, 132, 0.07), transparent 55%),
-      var(--bg);
-    color: var(--text);
+    background-color: var(--cream);
+    /* Faint dot grid → reads as "map paper" without stealing attention. */
+    background-image: radial-gradient(rgba(23, 23, 23, 0.05) 1.4px, transparent 1.4px);
+    background-size: 22px 22px;
+    color: var(--ink);
     scroll-behavior: smooth;
-    /* Offset the sticky header when jumping to the #how anchor. */
-    scroll-padding-top: 72px;
+    scroll-padding-top: 84px;
+    font-weight: 500;
   }
 
   /* ---- top bar ---- */
@@ -355,375 +359,490 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
     padding: 14px clamp(16px, 4vw, 48px);
     position: sticky;
     top: 0;
     z-index: 5;
-    backdrop-filter: blur(8px);
-    background: rgba(11, 13, 18, 0.6);
-    border-bottom: 1px solid var(--border);
+    background: var(--cream);
+    border-bottom: 2px solid var(--ink);
   }
   .brand {
     display: flex;
     align-items: center;
-    gap: 9px;
-    font-weight: 700;
-    letter-spacing: 0.2px;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 17px;
+    letter-spacing: -0.3px;
   }
   .logo-glyph {
     display: inline-flex;
+    padding: 4px;
+    background: var(--cream-2);
+    border: 2px solid var(--ink);
+    border-radius: 10px;
+    box-shadow: var(--clay-shadow-sm);
   }
-  .lp-skip {
-    background: none;
-    border: none;
-    color: var(--text-dim);
-    font-size: 13px;
-    padding: 6px 8px;
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--ink);
+    background: #fff;
+    color: var(--ink);
+    font-weight: 700;
+    border-radius: 999px;
+    box-shadow: var(--clay-shadow-sm);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
   }
-  .lp-skip:hover {
-    color: var(--text);
+  .btn-sm {
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+  .btn:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 5px 5px 0 var(--ink);
+  }
+  .btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 var(--ink);
   }
 
   /* ---- hero ---- */
   .hero {
     display: grid;
-    grid-template-columns: 1.05fr 1fr;
-    gap: clamp(24px, 5vw, 64px);
+    grid-template-columns: 1.02fr 1fr;
+    gap: clamp(28px, 5vw, 68px);
     align-items: center;
-    padding: clamp(32px, 6vw, 72px) clamp(16px, 4vw, 48px) 24px;
-    max-width: 1280px;
+    padding: clamp(28px, 5vw, 64px) clamp(16px, 4vw, 48px) 32px;
+    max-width: 1240px;
     margin: 0 auto;
-    min-height: 78vh;
+    min-height: 74vh;
   }
   .eyebrow {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    font-size: 13px;
-    color: var(--text-dim);
+    gap: 8px;
+    font-size: 12.5px;
+    font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 1.2px;
-    margin-bottom: 18px;
+    letter-spacing: 1px;
+    color: var(--ink);
+    background: var(--clay-yellow);
+    border: 2px solid var(--ink);
+    border-radius: 999px;
+    padding: 6px 14px;
+    box-shadow: var(--clay-shadow-sm);
+    margin-bottom: 22px;
   }
   .eyebrow .dot {
-    width: 8px;
-    height: 8px;
+    width: 9px;
+    height: 9px;
     border-radius: 50%;
-    background: var(--ok);
-    box-shadow: 0 0 0 4px rgba(61, 220, 132, 0.2);
+    background: var(--clay-green);
+    border: 1.5px solid var(--ink);
     animation: pulse 2s ease-in-out infinite;
   }
   h1 {
-    font-size: clamp(34px, 5.4vw, 60px);
-    line-height: 1.04;
+    font-size: clamp(36px, 5.6vw, 64px);
+    line-height: 1.02;
     margin: 0 0 18px;
-    letter-spacing: -1px;
-    font-weight: 800;
+    letter-spacing: -1.5px;
+    font-weight: 900;
   }
-  .grad {
-    background: linear-gradient(96deg, var(--ok), #73eff7 60%, #ffcd75);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+  .hl {
+    position: relative;
+    white-space: nowrap;
+    background: var(--clay-blue);
+    color: #fff;
+    padding: 0 10px;
+    border: 2px solid var(--ink);
+    border-radius: 12px;
+    box-shadow: var(--clay-shadow-sm);
+    display: inline-block;
+    transform: rotate(-1.5deg);
   }
   .sub {
     font-size: clamp(15px, 1.6vw, 19px);
-    color: var(--text-dim);
+    color: var(--muted);
     max-width: 30em;
     line-height: 1.55;
-    margin: 0 0 28px;
+    margin: 6px 0 28px;
+    font-weight: 500;
   }
   .cta {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 14px;
   }
   .btn-primary,
   .btn-ghost {
-    border-radius: var(--radius);
-    padding: 13px 22px;
-    font-size: 15px;
-    font-weight: 700;
-    border: 1px solid transparent;
-    transition: transform 0.1s ease, background 0.12s ease, border-color 0.12s ease;
+    border-radius: 999px;
+    padding: 14px 26px;
+    font-size: 15.5px;
+    font-weight: 800;
+    border: 2.5px solid var(--ink);
+    box-shadow: var(--clay-shadow);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
   }
   .btn-primary {
-    background: linear-gradient(180deg, #4be39a, var(--ok));
-    color: #06281a;
-    box-shadow: 0 6px 20px rgba(61, 220, 132, 0.28);
-  }
-  .btn-primary:hover {
-    transform: translateY(-1px);
+    background: var(--clay-green);
+    color: var(--ink);
   }
   .btn-ghost {
-    background: var(--surface-2);
-    border-color: var(--border);
-    color: var(--text);
+    background: #fff;
+    color: var(--ink);
   }
+  .btn-primary:hover,
   .btn-ghost:hover {
-    background: #232838;
+    transform: translate(-2px, -2px);
+    box-shadow: 8px 8px 0 var(--ink);
+  }
+  .btn-primary:active,
+  .btn-ghost:active {
+    transform: translate(3px, 3px);
+    box-shadow: 2px 2px 0 var(--ink);
   }
   .hero-facts {
     list-style: none;
     display: flex;
     flex-wrap: wrap;
-    gap: 18px;
+    gap: 10px;
     padding: 0;
-    margin: 26px 0 0;
+    margin: 30px 0 0;
     font-size: 13px;
-    color: var(--text-dim);
-    font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+    color: var(--ink);
   }
   .hero-facts li {
-    display: flex;
-    align-items: center;
+    background: var(--cream-2);
+    border: 2px solid var(--ink);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-weight: 600;
   }
-  .hero-facts li + li::before {
-    content: "·";
-    margin-right: 18px;
-    color: var(--border);
+  .hero-facts b {
+    font-weight: 900;
   }
 
-  /* ---- hero mock map + board modal ---- */
+  /* ---- hero mock: map paper + floating board card ---- */
   .hero-mock {
-    perspective: 1200px;
+    position: relative;
+  }
+  .float-badge {
+    position: absolute;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 800;
+    color: var(--ink);
+    border: 2px solid var(--ink);
+    border-radius: 999px;
+    padding: 7px 13px;
+    box-shadow: var(--clay-shadow-sm);
+    white-space: nowrap;
+  }
+  .fb-rooms {
+    top: -14px;
+    left: 18px;
+    background: var(--clay-green);
+    transform: rotate(-3deg);
+  }
+  .fb-colors {
+    top: 26px;
+    right: -10px;
+    background: var(--clay-yellow);
+    transform: rotate(3deg);
+    animation: bob 3.4s ease-in-out infinite;
+  }
+  .fb-radius {
+    bottom: -14px;
+    left: 24px;
+    background: var(--clay-purple);
+    color: #fff;
+    transform: rotate(2deg);
+  }
+  .fb-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1.5px solid var(--ink);
+    animation: pulse 1.8s ease-in-out infinite;
   }
   .mini-map {
     position: relative;
     aspect-ratio: 4 / 3;
-    border-radius: 14px;
-    border: 1px solid var(--border);
+    border-radius: var(--clay-radius);
+    border: 3px solid var(--ink);
     overflow: hidden;
-    background-color: #0e1116;
+    background-color: #eaf3ea;
+    /* Streets + parks pattern, kept soft so the board card stays the focus. */
     background-image:
-      linear-gradient(rgba(120, 140, 170, 0.06) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(120, 140, 170, 0.06) 1px, transparent 1px),
-      radial-gradient(120px 80px at 22% 70%, rgba(56, 183, 100, 0.1), transparent 70%),
-      radial-gradient(160px 90px at 78% 28%, rgba(65, 166, 246, 0.08), transparent 70%);
-    background-size: 28px 28px, 28px 28px, 100% 100%, 100% 100%;
-    box-shadow: var(--shadow);
+      linear-gradient(rgba(23, 23, 23, 0.07) 2px, transparent 2px),
+      linear-gradient(90deg, rgba(23, 23, 23, 0.07) 2px, transparent 2px),
+      radial-gradient(130px 90px at 22% 72%, rgba(61, 220, 132, 0.28), transparent 70%),
+      radial-gradient(170px 100px at 80% 26%, rgba(79, 140, 255, 0.22), transparent 70%);
+    background-size: 30px 30px, 30px 30px, 100% 100%, 100% 100%;
+    box-shadow: var(--clay-shadow);
   }
   .pin {
     position: absolute;
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     background: var(--pin);
-    border: 2px solid #0e1116;
+    border: 2.5px solid var(--ink);
     transform: translate(-50%, -50%);
     box-shadow: 0 0 0 0 var(--pin);
     animation: ping 2.6s ease-out infinite;
   }
   .pin-label {
     position: absolute;
-    left: 14px;
-    top: -4px;
+    left: 16px;
+    top: -5px;
     white-space: nowrap;
     font-size: 10px;
-    color: var(--text);
-    background: rgba(11, 13, 18, 0.8);
-    border: 1px solid var(--border);
-    border-radius: 5px;
+    font-weight: 700;
+    color: var(--ink);
+    background: #fff;
+    border: 2px solid var(--ink);
+    border-radius: 6px;
     padding: 2px 6px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   }
-  .board-modal {
+  .board-card {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: min(80%, 360px);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    padding: 10px;
+    width: min(82%, 366px);
+    background: #fff;
+    border: 3px solid var(--ink);
+    border-radius: var(--clay-radius);
+    box-shadow: var(--clay-shadow);
+    padding: 11px;
   }
-  .bm-head {
+  .bc-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 8px;
-    font-size: 12px;
+    margin-bottom: 9px;
+    font-size: 12.5px;
   }
-  .bm-title {
+  .bc-title {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-weight: 600;
+    gap: 7px;
+    font-weight: 800;
   }
-  .bm-live {
-    width: 7px;
-    height: 7px;
+  .bc-live {
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    background: var(--ok);
-    box-shadow: 0 0 6px var(--ok);
+    background: var(--clay-green);
+    border: 1.5px solid var(--ink);
     animation: pulse 1.6s ease-in-out infinite;
   }
-  .bm-online {
-    color: var(--text-dim);
-    font-family: ui-monospace, monospace;
+  .bc-online {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 800;
     font-variant-numeric: tabular-nums;
   }
-  .bm-canvas-wrap {
-    border-radius: 5px;
+  .bc-canvas-wrap {
+    border-radius: 9px;
     overflow: hidden;
-    border: 1px solid var(--border);
+    border: 2.5px solid var(--ink);
     line-height: 0;
   }
-  .bm-canvas {
+  .bc-canvas {
     width: 100%;
     height: auto;
     display: block;
     image-rendering: pixelated;
     background: #fff;
   }
-  .bm-palette {
+  .bc-palette {
     display: grid;
     grid-template-columns: repeat(16, 1fr);
     gap: 3px;
-    margin: 8px 0;
+    margin: 9px 0;
   }
-  .bm-swatch {
+  .bc-swatch {
     aspect-ratio: 1;
     border-radius: 3px;
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3);
+    box-shadow: inset 0 0 0 1px rgba(23, 23, 23, 0.35);
   }
-  .bm-swatch.sel {
-    outline: 2px solid var(--text);
+  .bc-swatch.sel {
+    outline: 2.5px solid var(--ink);
     outline-offset: 1px;
+    border-radius: 4px;
   }
-  .bm-foot {
+  .bc-foot {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
   }
-  .badge {
+  .tag {
     font-size: 10.5px;
-    color: var(--text-dim);
-    border: 1px solid var(--border);
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--cream-2);
+    border: 2px solid var(--ink);
     border-radius: 999px;
-    padding: 3px 8px;
+    padding: 3px 9px;
   }
-  .badge.ok {
-    color: var(--ok);
-    border-color: rgba(61, 220, 132, 0.4);
+  .tag.ok {
+    background: var(--clay-green);
   }
 
-  /* ---- scroll hint ---- */
-  .scroll-hint {
-    display: block;
+  /* ---- shared section heading ---- */
+  .section-title {
+    font-size: clamp(24px, 3.6vw, 36px);
+    font-weight: 900;
+    letter-spacing: -0.8px;
     text-align: center;
-    color: var(--text-dim);
-    font-size: 13px;
-    text-decoration: none;
-    padding: 8px 0 36px;
-    animation: bob 2.4s ease-in-out infinite;
-  }
-  .scroll-hint:hover {
-    color: var(--text);
+    margin: 0 0 28px;
   }
 
   /* ---- features ---- */
   .features {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: clamp(36px, 6vw, 64px) clamp(16px, 4vw, 48px) 24px;
+  }
+  .cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 16px;
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 16px clamp(16px, 4vw, 48px) 40px;
+    gap: 18px;
   }
   .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 22px;
-    transition: border-color 0.15s ease, transform 0.15s ease;
+    background: #fff;
+    border: 2.5px solid var(--ink);
+    border-radius: var(--clay-radius);
+    padding: 24px;
+    box-shadow: var(--clay-shadow);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
   }
   .card:hover {
-    border-color: #38415a;
-    transform: translateY(-2px);
+    transform: translate(-2px, -2px);
+    box-shadow: 8px 8px 0 var(--ink);
   }
   .card-icon {
     display: inline-flex;
-    color: var(--text);
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 9px;
-    margin-bottom: 14px;
+    color: var(--ink);
+    background: var(--accent);
+    border: 2.5px solid var(--ink);
+    border-radius: 13px;
+    padding: 11px;
+    margin-bottom: 16px;
+    box-shadow: var(--clay-shadow-sm);
   }
   .card h3 {
-    margin: 0 0 8px;
-    font-size: 17px;
+    margin: 0 0 9px;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
   }
   .card p {
     margin: 0;
-    color: var(--text-dim);
+    color: var(--muted);
     font-size: 14px;
     line-height: 1.55;
+    font-weight: 500;
   }
 
   /* ---- use cases ---- */
   .usecases {
     text-align: center;
-    padding: 28px clamp(16px, 4vw, 48px) 16px;
-    max-width: 900px;
+    padding: clamp(28px, 5vw, 48px) clamp(16px, 4vw, 48px) 16px;
+    max-width: 880px;
     margin: 0 auto;
   }
-  .usecases h2 {
-    font-size: clamp(24px, 3.4vw, 34px);
-    margin: 0 0 8px;
-    letter-spacing: -0.5px;
+  .usecases .section-title {
+    margin-bottom: 10px;
   }
   .usecases-sub {
-    color: var(--text-dim);
-    margin: 0 0 22px;
+    color: var(--muted);
+    margin: 0 0 24px;
+    font-weight: 500;
   }
   .chips {
     list-style: none;
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 10px;
+    gap: 11px;
     padding: 0;
     margin: 0;
   }
   .chips li {
-    border: 1px solid var(--border);
-    background: var(--surface);
+    border: 2.5px solid var(--ink);
+    background: #fff;
     border-radius: 999px;
-    padding: 8px 16px;
+    padding: 9px 18px;
     font-size: 14px;
-    color: var(--text);
+    font-weight: 700;
+    box-shadow: var(--clay-shadow-sm);
+  }
+  .chips li:nth-child(3n + 1) {
+    background: var(--clay-yellow);
+  }
+  .chips li:nth-child(3n + 2) {
+    background: #fff;
+  }
+  .chips li:nth-child(3n) {
+    background: var(--clay-green);
   }
 
   /* ---- bottom CTA + footer ---- */
   .cta-bottom {
+    padding: clamp(40px, 6vw, 72px) clamp(16px, 4vw, 48px);
+    max-width: 960px;
+    margin: 0 auto;
+  }
+  .cta-card {
     text-align: center;
-    padding: 56px clamp(16px, 4vw, 48px);
+    background: var(--clay-blue);
+    border: 3px solid var(--ink);
+    border-radius: 24px;
+    box-shadow: var(--clay-shadow);
+    padding: clamp(32px, 5vw, 56px) clamp(20px, 4vw, 48px);
+    color: #fff;
   }
-  .cta-bottom h2 {
-    font-size: clamp(26px, 4vw, 40px);
-    margin: 0 0 22px;
-    letter-spacing: -0.5px;
+  .cta-card h2 {
+    font-size: clamp(26px, 4vw, 42px);
+    font-weight: 900;
+    letter-spacing: -0.8px;
+    margin: 0 0 10px;
   }
-  .cta-bottom .cta {
+  .cta-card p {
+    margin: 0 0 24px;
+    font-weight: 600;
+    opacity: 0.92;
+  }
+  .cta-card .cta {
     justify-content: center;
   }
   .lp-footer {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     text-align: center;
-    padding: 28px 24px 48px;
-    border-top: 1px solid var(--border);
+    padding: 32px 24px 52px;
+    border-top: 2px solid var(--ink);
     font-size: 13px;
   }
+  .ft-brand {
+    font-weight: 800;
+  }
   .lp-footer .muted {
-    color: var(--text-dim);
+    color: var(--muted);
     max-width: 38em;
+    font-weight: 500;
   }
 
   /* ---- keyframes ---- */
@@ -733,7 +852,7 @@
       opacity: 1;
     }
     50% {
-      opacity: 0.45;
+      opacity: 0.4;
     }
   }
   @keyframes ping {
@@ -742,7 +861,7 @@
       opacity: 1;
     }
     70% {
-      box-shadow: 0 0 0 10px transparent;
+      box-shadow: 0 0 0 9px transparent;
       opacity: 0.9;
     }
     100% {
@@ -753,10 +872,10 @@
   @keyframes bob {
     0%,
     100% {
-      transform: translateY(0);
+      transform: rotate(3deg) translateY(0);
     }
     50% {
-      transform: translateY(4px);
+      transform: rotate(3deg) translateY(-5px);
     }
   }
 
@@ -765,24 +884,40 @@
     .hero {
       grid-template-columns: 1fr;
       min-height: auto;
-      padding-top: clamp(24px, 8vw, 48px);
+      padding-top: clamp(24px, 8vw, 40px);
     }
     .hero-mock {
       order: 2;
+      margin: 8px 6px 0;
     }
     .btn-primary,
     .btn-ghost {
       flex: 1 1 auto;
-      text-align: center;
-      justify-content: center;
+    }
+    .fb-colors {
+      right: 0;
+    }
+  }
+
+  @media (max-width: 420px) {
+    h1 {
+      font-size: clamp(30px, 9vw, 40px);
+    }
+    .hl {
+      white-space: normal;
+    }
+    .float-badge {
+      font-size: 11px;
+      padding: 6px 10px;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .eyebrow .dot,
-    .bm-live,
-    .pin,
-    .scroll-hint {
+    .bc-live,
+    .fb-dot,
+    .fb-colors,
+    .pin {
       animation: none;
     }
   }

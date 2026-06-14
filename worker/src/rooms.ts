@@ -29,9 +29,9 @@ const bboxQuery = z
   });
 
 const createBody = z.object({
-  lat: z.number(),
-  lng: z.number(),
-  acc: z.number().nonnegative(),
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  acc: z.number().nonnegative().max(100_000),
   name: z.string().trim().max(40).nullish(),
   token: z.string().max(2048).optional(),
 });
@@ -107,13 +107,34 @@ export function registerRooms(app: Hono<{ Bindings: Env }>): void {
   });
 
   // Address/place search -> coordinate (server-side, free Nominatim).
+  // Cached at the edge so repeat searches don't re-hit the rate-limited geocoder
+  // (Nominatim's policy is ~1 req/s); search is submit-only, never autocomplete.
   app.get(
     "/api/geocode",
     zValidator("query", z.object({ q: z.string().trim().min(1).max(120) })),
     async (c) => {
       const { q } = c.req.valid("query");
-      const hit = await forwardGeocode(q, c.env.GEOCODE_URL);
-      return c.json({ result: hit });
+      const norm = q.trim().toLowerCase();
+      const cache = caches.default;
+      const cacheKey = new Request(
+        `https://gpb-geocode.internal/?q=${encodeURIComponent(norm)}`,
+      );
+      try {
+        const cached = await cache.match(cacheKey);
+        if (cached) return cached;
+      } catch {
+        /* cache unavailable — fall through to a live lookup */
+      }
+
+      const result = await forwardGeocode(q, c.env.GEOCODE_URL);
+      const res = c.json({ result });
+      res.headers.set("Cache-Control", "public, max-age=86400");
+      try {
+        c.executionCtx.waitUntil(cache.put(cacheKey, res.clone()));
+      } catch {
+        /* cache write best-effort */
+      }
+      return res;
     },
   );
 
@@ -133,6 +154,9 @@ export function registerRooms(app: Hono<{ Bindings: Env }>): void {
   });
 
   app.post("/api/rooms", zValidator("json", createBody), async (c) => {
+    if (c.env.WRITE_DISABLED === "true") {
+      return jsonError(c, 403, "write_disabled", "writes are temporarily disabled");
+    }
     const body = c.req.valid("json");
 
     // Human check: a valid session cookie, or a fresh Turnstile token.

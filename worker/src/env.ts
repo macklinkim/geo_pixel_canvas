@@ -8,6 +8,8 @@ export interface Env {
   APP_VERSION: string;
   /** Reverse-geocoder base URL (e.g. Nominatim). Empty disables auto-naming. */
   GEOCODE_URL: string;
+  /** Emergency kill switch: "true" rejects all writes (paint/stamp/rename/create). */
+  WRITE_DISABLED: string;
 
   // Cloudflare Turnstile (human verification for write actions).
   TURNSTILE_ENABLED: string; // "true" to enable

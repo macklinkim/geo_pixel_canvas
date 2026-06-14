@@ -7,6 +7,8 @@ import {
   COOLDOWN_MS,
   PALETTE_VERSION,
   MAX_WS_MESSAGE_BYTES,
+  WRITE_BURST_CELLS,
+  WRITE_REFILL_CELLS_PER_SEC,
 } from "@shared/constants";
 import { ClientMsg, type ServerMsg } from "@shared/protocol";
 import { encodeSnapshot } from "@shared/snapshot";
@@ -21,6 +23,28 @@ interface ConnState {
   cooldownUntil: number;
   /** Until when this connection counts as human-verified (ms epoch). */
   humanVerifiedUntil: number;
+  /** Cell-based flood-guard bucket (capacity WRITE_BURST_CELLS). */
+  tokens: number;
+  /** Last time the flood-guard bucket was refilled (ms epoch). */
+  lastRefill: number;
+}
+
+/** Strip control/zero-width/bidi chars and collapse whitespace in room names. */
+function sanitizeRoomName(raw: string): string {
+  let out = "";
+  for (const ch of raw) {
+    const code = ch.codePointAt(0) ?? 0;
+    // Drop C0/C1 controls, DEL, zero-width / bidi marks, line/para separators, BOM.
+    const control = code < 0x20 || code === 0x7f;
+    const invisible =
+      (code >= 0x200b && code <= 0x200f) ||
+      code === 0x2028 ||
+      code === 0x2029 ||
+      code === 0xfeff;
+    if (control || invisible) continue;
+    out += ch;
+  }
+  return out.replace(/\s+/g, " ").trim().slice(0, 40);
 }
 
 type Row<T> = T & Record<string, SqlStorageValue>;
@@ -101,6 +125,8 @@ export class RoomDurableObject extends DurableObject<Env> {
       sessionId: crypto.randomUUID(),
       cooldownUntil: 0,
       humanVerifiedUntil,
+      tokens: WRITE_BURST_CELLS,
+      lastRefill: Date.now(),
     };
     server.serializeAttachment(state);
 
@@ -191,6 +217,10 @@ export class RoomDurableObject extends DurableObject<Env> {
     ws: WebSocket,
     msg: { name: string; lat: number; lng: number; acc: number; token?: string },
   ): Promise<void> {
+    if (this.writesDisabled()) {
+      this.send(ws, { t: "ack", ok: false, reason: "write_disabled" });
+      return;
+    }
     const gate = this.gate(msg.lat, msg.lng, msg.acc);
     if (!gate.canWrite) {
       this.send(ws, { t: "ack", ok: false, reason: gate.reason ?? "invalid" });
@@ -205,7 +235,7 @@ export class RoomDurableObject extends DurableObject<Env> {
 
     const roomId = this.getRoomId();
     if (!roomId) return;
-    const name = msg.name.trim().slice(0, 40);
+    const name = sanitizeRoomName(msg.name);
     if (!name) return;
 
     const center = roomCenterFromGeohash(roomId);
@@ -242,6 +272,10 @@ export class RoomDurableObject extends DurableObject<Env> {
     ws: WebSocket,
     msg: { x: number; y: number; color: number; lat: number; lng: number; acc: number; token?: string },
   ): Promise<void> {
+    if (this.writesDisabled()) {
+      this.send(ws, { t: "ack", ok: false, reason: "write_disabled" });
+      return;
+    }
     const gate = this.gate(msg.lat, msg.lng, msg.acc);
     if (!gate.canWrite) {
       this.send(ws, { t: "ack", ok: false, reason: gate.reason ?? "invalid" });
@@ -263,6 +297,11 @@ export class RoomDurableObject extends DurableObject<Env> {
         reason: "cooldown",
         cooldownMs: state.cooldownUntil - now,
       });
+      return;
+    }
+
+    if (!this.consume(ws, state, 1, now)) {
+      this.send(ws, { t: "ack", ok: false, reason: "rate_limited" });
       return;
     }
 
@@ -292,6 +331,10 @@ export class RoomDurableObject extends DurableObject<Env> {
     ws: WebSocket,
     msg: { cells: { x: number; y: number; color: number }[]; lat: number; lng: number; acc: number; token?: string },
   ): Promise<void> {
+    if (this.writesDisabled()) {
+      this.send(ws, { t: "ack", ok: false, reason: "write_disabled" });
+      return;
+    }
     const gate = this.gate(msg.lat, msg.lng, msg.acc);
     if (!gate.canWrite) {
       this.send(ws, { t: "ack", ok: false, reason: gate.reason ?? "invalid" });
@@ -308,6 +351,11 @@ export class RoomDurableObject extends DurableObject<Env> {
     const now = Date.now();
     if (now < state.cooldownUntil) {
       this.send(ws, { t: "ack", ok: false, reason: "cooldown", cooldownMs: state.cooldownUntil - now });
+      return;
+    }
+
+    if (!this.consume(ws, state, msg.cells.length, now)) {
+      this.send(ws, { t: "ack", ok: false, reason: "rate_limited" });
       return;
     }
 
@@ -412,7 +460,15 @@ export class RoomDurableObject extends DurableObject<Env> {
 
   private getConn(ws: WebSocket): ConnState {
     const att = ws.deserializeAttachment() as ConnState | null;
-    return att ?? { sessionId: "unknown", cooldownUntil: 0, humanVerifiedUntil: 0 };
+    return (
+      att ?? {
+        sessionId: "unknown",
+        cooldownUntil: 0,
+        humanVerifiedUntil: 0,
+        tokens: WRITE_BURST_CELLS,
+        lastRefill: 0,
+      }
+    );
   }
 
   /**
@@ -438,6 +494,26 @@ export class RoomDurableObject extends DurableObject<Env> {
     state.humanVerifiedUntil = now + cfg.ttlMs;
     ws.serializeAttachment(state);
     return { ok: true };
+  }
+
+  private writesDisabled(): boolean {
+    return this.env.WRITE_DISABLED === "true";
+  }
+
+  /** Refill then try to spend `cost` cells from this connection's flood bucket. */
+  private consume(ws: WebSocket, state: ConnState, cost: number, now: number): boolean {
+    if (!Number.isFinite(state.tokens)) state.tokens = WRITE_BURST_CELLS;
+    const last = Number.isFinite(state.lastRefill) ? state.lastRefill : now;
+    const refilled = ((now - last) / 1000) * WRITE_REFILL_CELLS_PER_SEC;
+    state.tokens = Math.min(WRITE_BURST_CELLS, state.tokens + Math.max(0, refilled));
+    state.lastRefill = now;
+    if (state.tokens < cost) {
+      ws.serializeAttachment(state);
+      return false;
+    }
+    state.tokens -= cost;
+    ws.serializeAttachment(state);
+    return true;
   }
 
   private online(): number {

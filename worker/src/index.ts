@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { isValidGeohash } from "@shared/room";
+import { GEOHASH_PRECISION } from "@shared/constants";
 import { registerRooms } from "./rooms";
 import { RoomDurableObject } from "./room-do";
 import { jsonError } from "./errors";
@@ -14,7 +15,9 @@ registerRooms(app);
 // WebSocket: /ws/:roomId -> the room's Durable Object.
 app.get("/ws/:roomId", async (c) => {
   const roomId = c.req.param("roomId");
-  if (!isValidGeohash(roomId)) {
+  // Rooms are always created at the fixed precision; reject other lengths so
+  // arbitrary-precision geohashes can't spin up stray Durable Objects.
+  if (!isValidGeohash(roomId) || roomId.length !== GEOHASH_PRECISION) {
     return jsonError(c, 400, "bad_room", "invalid room id");
   }
   if (c.req.header("Upgrade") !== "websocket") {

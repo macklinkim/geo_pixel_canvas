@@ -2,6 +2,29 @@
 
 최신 항목을 위에 추가한다.
 
+## 2026-06-14 (11) — 공개 배포 하드닝 (어뷰즈 방어 + 외부 서비스 정책)
+
+대중 공개 준비. Turnstile 봇 게이트(항목 10)와 직교하는 하드닝:
+
+- **입력 범위 검증**: `protocol.ts`의 lat(-90~90)/lng(-180~180)/acc(0~100k)를 모든 WS 쓰기 메시지에
+  강제, `rooms.ts` createBody 동일. `index.ts`에서 roomId 길이를 `GEOHASH_PRECISION`(8)으로 고정 →
+  임의 정밀도 geohash로 stray DO 생성 차단.
+- **셀 단위 토큰버킷 플러드 가드**: `room-do.ts`에 연결당 버킷(`WRITE_BURST_CELLS=1500`,
+  `WRITE_REFILL_CELLS_PER_SEC=300`). paint=1셀, stamp=cells.length 차감. 0.1s 펜 느낌은 그대로 두면서
+  scripted stamp 도배/보드 와이프를 차단. 부족 시 `rate_limited` ack.
+- **긴급 킬 스위치**: env `WRITE_DISABLED="true"` → paint/stamp/rename + `POST /api/rooms` 거부
+  (`write_disabled` ack/403). 대시보드에서 즉시 토글(코드 재배포 불필요).
+- **방 이름 새니타이즈**: `sanitizeRoomName`(제어/zero-width/bidi/줄구분자/BOM 제거 + 공백 정리).
+- **지오코더 캐시**: `GET /api/geocode`를 Cloudflare Cache API로 1일 캐싱 → 반복 검색이 rate-limited
+  Nominatim을 재호출하지 않음(검색은 submit-only).
+- **타일 제공자 교체**: `MAP_STYLE_URL`을 OpenFreeMap `positron`(키리스·공개사용 가능)으로 →
+  OSM 표준 타일서버 정책 블로커 제거. attribution 유지. 다크 베이스맵은 키 있는 스타일로 1줄 교체 가능(주석).
+- **클라 알림**: RoomPanel에 `rate_limited`/`write_disabled` 트랜지언트 안내(3초 자동 해제).
+- 팔레트 32색화에 맞춰 랜딩 facts/카피의 색 수를 `PALETTE.length` 동적 표기로 수정.
+- 검증: `pnpm check` 0 errors, `pnpm build` 성공. 브라우저(chrome-devtools): 랜딩→/verify(테스트키 자동통과)
+  →/app 진입, positron 타일 로드(스프라이트 경고 해소, attribution 유지), 콘솔 에러 0.
+- 미적용(배포 시 본인 Cloudflare 계정 필요): D1 `database_id` 생성/치환, `db:migrate:remote`, `wrangler login`.
+
 ## 2026-06-14 (10) — Cloudflare Turnstile 사람 확인 (진입 게이트 + 쓰기 경로 서버 검증)
 
 - 진입 게이트: 라우팅 `/`(랜딩) → `/verify`(Turnstile) → `/app`. `POST /api/verify`가 Siteverify 검증 후
@@ -138,3 +161,22 @@
     presence online=2, ack ok cd=5000; 원거리 → out_of_range, 저정확도 → low_accuracy 거부 확인.
   - D1 인덱스 동기화: paint 후 pixel_count 0→1, last_drawn_at 갱신 확인.
   - 프라이버시: 소스 코드에 원본 좌표 로그 없음.
+
+## 2026-06-14 — 랜딩 리디자인 (다크 → playful clay)
+
+- `client/src/components/LandingPage.svelte` 전면 리스타일: 다크 해커톤 톤 →
+  밝은 크림(#FFF7E8) 배경 + 굵은 검정 테두리 + 하드 오프셋 그림자(`6px 6px 0`) +
+  둥근 클레이 카드 + 원색 포인트(blue/yellow/green/red/purple)의 "playful clay interface".
+  참조 교육플랫폼의 디자인 *언어*만 차용(크림 배경/검정 테두리/클레이 카드/floating badge/
+  product mock), 교육 카피·Courses/Pricing 등 정보구조는 의도적으로 제외.
+- 구성: Hero(브랜드+핵심문장+CTA 2종+stat chips+지도패턴 위 보드 mock+floating badge) →
+  "How it works" 4카드(Pick a place / Paint nearby / Watch it live / Privacy by design,
+  lucide-svelte 아이콘) → "One canvas per place" 칩 → 하단 CTA 카드 → footer.
+- 디자인 토큰은 **`.landing` 스코프 내부에만** 정의 → VerifyGate/RoomPanel/MapView 등
+  나머지 다크 테마 화면과 `app.css`는 일절 미수정. 픽셀 아트 팔레트는 그대로 사용.
+- 실제 상수 사용: 보드 `192×128`(BOARD_W/H), `32 colors`(PALETTE.length), `100m`(WRITE_RADIUS_M).
+  (브리프의 "96×64 / 16 colors"는 구버전 수치 → 실제 상수로 표기.)
+- props 계약 유지: `onenter("paint")` / `onenter("explore")` 그대로. CTA→/verify→(테스트키 자동통과)→/app 확인.
+- 접근성: 장식 요소 `aria-hidden`, `prefers-reduced-motion` 시 애니메이션 정지.
+- 검증: `pnpm check` 0 errors, `pnpm build` 성공. Playwright로 desktop(1280)·mobile(390) 첫 화면 +
+  하위 섹션 스크린샷 확인(가로 스크롤 없음, CTA 첫 화면 노출), "Start painting" 클릭 → /app 진입 확인.

@@ -30,12 +30,21 @@ tag = "v1"
 new_sqlite_classes = ["RoomDurableObject"]
 
 [vars]
-MAP_STYLE_URL = ""
+# Public-grade keyless tile provider (OpenFreeMap) — removes the OSM standard
+# tile-server policy blocker for a public launch. "positron" is a clean minimal
+# light style that pairs well with the dark UI; for a true dark basemap swap to a
+# keyed style (e.g. MapTiler "dark" or Stadia "alidade_smooth_dark").
+# Empty falls back to the dev-only OSM raster (do NOT ship empty publicly).
+MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/positron"
 APP_VERSION = "0.1.0"
 # Reverse-geocoder for auto-naming new rooms by their area (cell center only).
 # Empty disables naming. Nominatim policy: 1 req/s, descriptive User-Agent;
 # for production prefer a self-hosted or paid geocoder.
 GEOCODE_URL = "https://nominatim.openstreetmap.org"
+# Emergency kill switch. Set to "true" to reject ALL writes (paint/stamp/rename/
+# room creation) — flip it in the Cloudflare dashboard for instant effect, no
+# code redeploy needed.
+WRITE_DISABLED = "false"
 
 # Cloudflare Turnstile — human verification for write actions only.
 # Site key is public. The SECRET key is NOT here: set it in .dev.vars (local)

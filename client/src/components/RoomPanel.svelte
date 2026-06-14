@@ -172,6 +172,25 @@
   let canDraw = $derived(room.canWrite && room.status === "open");
   let title = $derived(room.name ?? app.knownRoom(roomId)?.name ?? `Cell ${roomId}`);
 
+  // Transient write-reject notice (flood guard / kill switch).
+  let ackNotice = $derived(
+    room.lastAck === "rate_limited"
+      ? "너무 빠르게 그리고 있어요. 잠시 후 다시 시도하세요."
+      : room.lastAck === "write_disabled"
+        ? "지금은 그리기가 일시 중지됐어요."
+        : null,
+  );
+  $effect(() => {
+    if (room.lastAck === "rate_limited" || room.lastAck === "write_disabled") {
+      const id = setTimeout(() => {
+        if (room.lastAck === "rate_limited" || room.lastAck === "write_disabled") {
+          room.lastAck = null;
+        }
+      }, 3000);
+      return () => clearTimeout(id);
+    }
+  });
+
   let editing = $state(false);
   let draft = $state("");
 
@@ -248,6 +267,10 @@
     </div>
   {/if}
 
+  {#if ackNotice}
+    <div class="ack-notice" role="status">{ackNotice}</div>
+  {/if}
+
   <div class="board-area">
     <PixelBoard
       bind:this={boardRef}
@@ -307,6 +330,15 @@
     z-index: 20;
     background: rgba(4, 6, 10, 0.62);
     backdrop-filter: blur(2px);
+  }
+  .ack-notice {
+    font-size: 13px;
+    color: var(--warn);
+    background: rgba(255, 205, 117, 0.1);
+    border: 1px solid rgba(255, 205, 117, 0.3);
+    border-radius: 8px;
+    padding: 6px 10px;
+    text-align: center;
   }
   .modal {
     position: fixed;
