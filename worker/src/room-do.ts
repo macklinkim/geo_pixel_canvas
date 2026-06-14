@@ -100,6 +100,21 @@ export class RoomDurableObject extends DurableObject<Env> {
     return "";
   }
 
+  /**
+   * Wipe this room (called by the retention cron via RPC). Skips while anyone is
+   * connected so a live viewer is never kicked, returning false so the caller
+   * keeps the D1 row for a later run. Otherwise clears all DO storage (pixels +
+   * meta) and returns true. Schema is recreated lazily on the next access.
+   */
+  async purge(): Promise<boolean> {
+    this.ensureInit();
+    if (this.online() > 0) return false;
+    await this.ctx.storage.deleteAll();
+    this.initialized = false;
+    this.roomId = null;
+    return true;
+  }
+
   // ---------- HTTP -> WebSocket upgrade ----------
 
   async fetch(request: Request): Promise<Response> {

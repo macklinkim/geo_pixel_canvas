@@ -3,6 +3,7 @@ import { isValidGeohash } from "@shared/room";
 import { GEOHASH_PRECISION } from "@shared/constants";
 import { registerRooms } from "./rooms";
 import { RoomDurableObject } from "./room-do";
+import { purgeExpiredRooms } from "./retention";
 import { jsonError } from "./errors";
 import { turnstileConfig } from "./turnstile";
 import { SESSION_COOKIE, getCookie, verifySession } from "./session";
@@ -65,5 +66,11 @@ app.all("/api/*", (c) => jsonError(c, 404, "not_found", "unknown api route"));
 // Fallback for anything else that reached the Worker: defer to static assets.
 app.all("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 
-export default app;
+// Cron-driven data retention runs alongside the HTTP/WebSocket app.
+export default {
+  fetch: app.fetch,
+  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(purgeExpiredRooms(env));
+  },
+} satisfies ExportedHandler<Env>;
 export { RoomDurableObject };

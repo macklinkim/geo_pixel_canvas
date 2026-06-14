@@ -29,6 +29,12 @@ class_name = "RoomDurableObject"
 tag = "v1"
 new_sqlite_classes = ["RoomDurableObject"]
 
+# Data retention: once daily at 18:00 UTC (03:00 KST, low traffic) the `scheduled`
+# handler reclaims stale boards — sparse ones after 2 weeks, >=50%-filled ones
+# after ~6 months of inactivity. See worker/src/retention.ts.
+[triggers]
+crons = ["0 18 * * *"]
+
 [vars]
 # Public-grade keyless tile provider (OpenFreeMap) — removes the OSM standard
 # tile-server policy blocker for a public launch. "positron" is a clean minimal

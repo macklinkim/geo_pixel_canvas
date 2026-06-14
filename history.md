@@ -221,3 +221,18 @@
 - 검증: `pnpm check` 0 errors, `pnpm build` 성공. 로컬 D1 migrate+seed 후 `/api/rooms/recent` 4건 반환
   (빈 '서울역 앞' 제외, null 이름 포함), limit=999 → 400. dev에서 desktop/mobile 오버레이 열기 →
   '시청 광장' 클릭 → 지도 이동 + 해당 방 모달 오픈 확인.
+
+## 2026-06-14 — 데이터 보존/자동삭제 (Cron)
+
+- 규칙(기준 last_drawn_at): 채움률 50% 미만(pixel_count < 12,288)은 2주 무활동 시 삭제,
+  50% 이상은 6개월 무활동 시 삭제. 채움률은 pixel_count/BOARD_AREA(24,576)로 판정.
+  ※ 프라이버시상 그린 사람 신원 미저장 → "사용자별 50%"는 불가, "보드 전체 채움률"로 정의.
+- 동작: Cloudflare Cron(`[triggers] crons=["0 18 * * *"]`, 03:00 KST) → 워커 `scheduled`(index.ts) →
+  `worker/src/retention.ts purgeExpiredRooms`. D1에서 만료 방 배치 조회(LIMIT 500) → 각 방 DO의
+  `purge()` RPC(room-do.ts: online>0면 skip, 아니면 storage.deleteAll) → **성공 후에만** D1 행 DELETE.
+  순서 중요(DO 먼저, D1 나중) — 반대면 인덱스 없는 유령 DO가 용량만 차지.
+- 안전: 접속자 있으면 skip(다음 주기 재시도), purge 실패 시 D1 행 유지(고아화 방지), 배치 상한.
+- 보존 상수는 server-only로 retention.ts에 둠(클라이언트 불필요). 클라 변경 없음(지도/최근은 D1만 봄).
+- 검증: `pnpm check` 0 errors, `pnpm build` 성공. 로컬 D1에 5개 케이스 시드(A 희소20일/B 희소5일/
+  C 풀20일/D 풀200일/E 풀30일) → 선택쿼리 정확히 A,D만 선택 확인 → `/cdn-cgi/handler/scheduled`
+  수동 트리거 시 "purged 2, skipped 0", D1에 B,C,E만 잔존 확인. 테스트 방·임시 SQL 정리 완료.
