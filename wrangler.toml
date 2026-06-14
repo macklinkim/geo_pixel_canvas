@@ -60,3 +60,10 @@ WRITE_DISABLED = "false"
 TURNSTILE_ENABLED = "true"
 TURNSTILE_SITE_KEY = "0x4AAAAAADkjZa5PVzzMQVMV"
 TURNSTILE_SESSION_TTL_MS = "1800000"
+
+# Operator Admin Override. Bypasses ONLY the location gate (writes still require
+# human verification, pass Zod, and obey WRITE_DISABLED + rate/flood limits).
+# The secret is NOT here: set ADMIN_SECRET_HASH (sha-256 hex of the code) via
+# .dev.vars locally or `wrangler secret put ADMIN_SECRET_HASH` in production.
+ADMIN_OVERRIDE_ENABLED = "true"
+ADMIN_SESSION_TTL_MS = "3600000"

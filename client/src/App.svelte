@@ -4,18 +4,22 @@
   import RoomPanel from "./components/RoomPanel.svelte";
   import LandingPage from "./components/LandingPage.svelte";
   import VerifyGate from "./components/VerifyGate.svelte";
+  import AdminPanel from "./components/AdminPanel.svelte";
   import { app } from "./lib/state/appState.svelte";
 
-  let ready = $state(false);
-  let route = $state(normalize(location.pathname));
+  type Route = "/" | "/verify" | "/app" | "/admin";
 
-  function normalize(path: string): "/" | "/verify" | "/app" {
+  let ready = $state(false);
+  let route = $state<Route>(normalize(location.pathname));
+
+  function normalize(path: string): Route {
     if (path === "/verify") return "/verify";
     if (path === "/app") return "/app";
+    if (path === "/admin") return "/admin";
     return "/";
   }
 
-  function navigate(path: "/" | "/verify" | "/app"): void {
+  function navigate(path: Route): void {
     if (normalize(location.pathname) !== path) history.pushState({}, "", path);
     route = path;
   }
@@ -49,6 +53,23 @@
     } catch {
       /* fall back to defaults */
     }
+
+    // Reflect any existing admin session (drives the "Admin mode" badge).
+    try {
+      const res = await fetch("/api/admin/session");
+      if (res.ok) {
+        const d = (await res.json()) as {
+          enabled: boolean;
+          valid: boolean;
+          expiresAt: number | null;
+        };
+        app.adminEnabled = d.enabled;
+        app.adminActive = d.valid;
+        app.adminExpiresAt = d.expiresAt;
+      }
+    } catch {
+      /* admin badge simply stays off */
+    }
     ready = true;
 
     addEventListener("popstate", () => (route = normalize(location.pathname)));
@@ -73,6 +94,8 @@
     {/if}
   {:else if route === "/verify"}
     <VerifyGate onVerified={() => navigate("/app")} onBack={() => navigate("/")} />
+  {:else if route === "/admin"}
+    <AdminPanel onEnterApp={() => navigate("/app")} />
   {:else}
     <LandingPage onenter={() => navigate("/verify")} />
   {/if}

@@ -8,7 +8,7 @@
   import type { RoomMeta } from "@shared/room";
   import { getCurrentPosition } from "../lib/geo/browserLocation";
   import { BASEMAPS, DEFAULT_BASEMAP, type BaseMapId } from "../lib/map/mapStyle";
-  import { LocateFixed, Layers, Search, Brush, Images } from "lucide-svelte";
+  import { LocateFixed, Layers, Search, Brush, Images, ShieldCheck } from "lucide-svelte";
 
   let container: HTMLDivElement;
   let controller: MapController | null = null;
@@ -170,6 +170,12 @@
 
 <div class="map" bind:this={container}></div>
 
+{#if app.adminActive}
+  <div class="admin-badge" title="위치 게이트 우회 활성">
+    <ShieldCheck size={14} /> Admin mode
+  </div>
+{/if}
+
 <!-- Address search (top center) -->
 <form class="search" onsubmit={search} class:error={searchError}>
   <Search size={16} class="search-ic" />
@@ -243,6 +249,23 @@
   .map {
     position: absolute;
     inset: 0;
+  }
+  .admin-badge {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 6;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    background: var(--danger);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 5px 11px;
+    box-shadow: var(--shadow);
   }
   .search {
     position: absolute;

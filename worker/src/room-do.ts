@@ -23,6 +23,8 @@ interface ConnState {
   cooldownUntil: number;
   /** Until when this connection counts as human-verified (ms epoch). */
   humanVerifiedUntil: number;
+  /** Until when this connection has operator admin override (ms epoch). */
+  adminVerifiedUntil: number;
   /** Cell-based flood-guard bucket (capacity WRITE_BURST_CELLS). */
   tokens: number;
   /** Last time the flood-guard bucket was refilled (ms epoch). */
@@ -124,8 +126,9 @@ export class RoomDurableObject extends DurableObject<Env> {
     const roomId = url.searchParams.get("room");
     if (roomId) this.setRoomId(roomId);
 
-    // Human-session window validated by the Worker (trusted boundary).
+    // Human-session + admin-override windows validated by the Worker (trusted boundary).
     const humanVerifiedUntil = Number(url.searchParams.get("human")) || 0;
+    const adminVerifiedUntil = Number(url.searchParams.get("admin")) || 0;
 
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("expected websocket", { status: 426 });
@@ -140,6 +143,7 @@ export class RoomDurableObject extends DurableObject<Env> {
       sessionId: crypto.randomUUID(),
       cooldownUntil: 0,
       humanVerifiedUntil,
+      adminVerifiedUntil,
       tokens: WRITE_BURST_CELLS,
       lastRefill: Date.now(),
     };
@@ -219,7 +223,8 @@ export class RoomDurableObject extends DurableObject<Env> {
       h: BOARD_H,
       paletteVersion: PALETTE_VERSION,
       pixels: encodeSnapshot(this.buildSnapshot()),
-      canWrite: gate.canWrite,
+      // Admin override unlocks writing regardless of location (server-verified).
+      canWrite: gate.canWrite || this.isAdmin(ws),
       cooldownMs,
       online: this.online(),
       name,
@@ -236,8 +241,10 @@ export class RoomDurableObject extends DurableObject<Env> {
       this.send(ws, { t: "ack", ok: false, reason: "write_disabled" });
       return;
     }
+    // Admin override bypasses ONLY the location gate; all other checks remain.
+    const admin = this.isAdmin(ws);
     const gate = this.gate(msg.lat, msg.lng, msg.acc);
-    if (!gate.canWrite) {
+    if (!admin && !gate.canWrite) {
       this.send(ws, { t: "ack", ok: false, reason: gate.reason ?? "invalid" });
       return;
     }
@@ -250,6 +257,7 @@ export class RoomDurableObject extends DurableObject<Env> {
 
     const roomId = this.getRoomId();
     if (!roomId) return;
+    if (admin) this.auditAdmin("rename");
     const name = sanitizeRoomName(msg.name);
     if (!name) return;
 
@@ -291,8 +299,10 @@ export class RoomDurableObject extends DurableObject<Env> {
       this.send(ws, { t: "ack", ok: false, reason: "write_disabled" });
       return;
     }
+    // Admin override bypasses ONLY the location gate; all other checks remain.
+    const admin = this.isAdmin(ws);
     const gate = this.gate(msg.lat, msg.lng, msg.acc);
-    if (!gate.canWrite) {
+    if (!admin && !gate.canWrite) {
       this.send(ws, { t: "ack", ok: false, reason: gate.reason ?? "invalid" });
       return;
     }
@@ -320,6 +330,7 @@ export class RoomDurableObject extends DurableObject<Env> {
       return;
     }
 
+    if (admin) this.auditAdmin("paint");
     const isNewCell = !this.cellExists(msg.x, msg.y);
     this.ctx.storage.sql.exec(
       `INSERT INTO pixels (x, y, color, updated_at) VALUES (?1, ?2, ?3, ?4)
@@ -350,8 +361,10 @@ export class RoomDurableObject extends DurableObject<Env> {
       this.send(ws, { t: "ack", ok: false, reason: "write_disabled" });
       return;
     }
+    // Admin override bypasses ONLY the location gate; all other checks remain.
+    const admin = this.isAdmin(ws);
     const gate = this.gate(msg.lat, msg.lng, msg.acc);
-    if (!gate.canWrite) {
+    if (!admin && !gate.canWrite) {
       this.send(ws, { t: "ack", ok: false, reason: gate.reason ?? "invalid" });
       return;
     }
@@ -374,6 +387,7 @@ export class RoomDurableObject extends DurableObject<Env> {
       return;
     }
 
+    if (admin) this.auditAdmin("stamp");
     // A whole stamp costs a single cooldown.
     let newCells = 0;
     for (const c of msg.cells) {
@@ -401,6 +415,16 @@ export class RoomDurableObject extends DurableObject<Env> {
   private gate(lat: number, lng: number, acc: number) {
     const center = roomCenterFromGeohash(this.getRoomId());
     return checkLocationGate({ roomCenter: center, lat, lng, acc });
+  }
+
+  /** Operator admin override active on this connection (set at WS upgrade). */
+  private isAdmin(ws: WebSocket): boolean {
+    return this.getConn(ws).adminVerifiedUntil > Date.now();
+  }
+
+  /** Audit an admin-override write. No raw coordinates — roomId/action/time only. */
+  private auditAdmin(action: string): void {
+    console.log(`admin override: room=${this.getRoomId()} action=${action} at=${Date.now()}`);
   }
 
   private cellExists(x: number, y: number): boolean {
@@ -480,6 +504,7 @@ export class RoomDurableObject extends DurableObject<Env> {
         sessionId: "unknown",
         cooldownUntil: 0,
         humanVerifiedUntil: 0,
+        adminVerifiedUntil: 0,
         tokens: WRITE_BURST_CELLS,
         lastRefill: 0,
       }

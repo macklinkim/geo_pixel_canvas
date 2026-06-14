@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { isValidGeohash } from "@shared/room";
 import { GEOHASH_PRECISION } from "@shared/constants";
 import { registerRooms } from "./rooms";
+import { registerAdmin, verifyAdminCookie } from "./admin";
 import { RoomDurableObject } from "./room-do";
 import { purgeExpiredRooms } from "./retention";
 import { jsonError } from "./errors";
@@ -12,6 +13,7 @@ import type { Env } from "./env";
 const app = new Hono<{ Bindings: Env }>();
 
 registerRooms(app);
+registerAdmin(app);
 
 // WebSocket: /ws/:roomId -> the room's Durable Object.
 app.get("/ws/:roomId", async (c) => {
@@ -37,13 +39,18 @@ app.get("/ws/:roomId", async (c) => {
     humanUntil = await verifySession(ts.secret, cookie, Date.now());
   }
 
+  // Admin override window, verified here at the trusted boundary from the signed
+  // gpb_admin cookie. The DO uses it to bypass ONLY the location gate.
+  const adminUntil = await verifyAdminCookie(c.env, c.req.header("Cookie") ?? null, Date.now());
+
   const id = c.env.ROOM.idFromName(roomId);
   const stub = c.env.ROOM.get(id);
 
-  // Forward the upgrade, telling the DO its own room id + human window.
+  // Forward the upgrade, telling the DO its own room id + human/admin windows.
   const url = new URL(c.req.url);
   url.searchParams.set("room", roomId);
   url.searchParams.set("human", String(humanUntil));
+  url.searchParams.set("admin", String(adminUntil));
   return stub.fetch(new Request(url, c.req.raw));
 });
 

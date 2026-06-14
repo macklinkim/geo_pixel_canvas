@@ -236,3 +236,24 @@
 - 검증: `pnpm check` 0 errors, `pnpm build` 성공. 로컬 D1에 5개 케이스 시드(A 희소20일/B 희소5일/
   C 풀20일/D 풀200일/E 풀30일) → 선택쿼리 정확히 A,D만 선택 확인 → `/cdn-cgi/handler/scheduled`
   수동 트리거 시 "purged 2, skipped 0", D1에 B,C,E만 잔존 확인. 테스트 방·임시 SQL 정리 완료.
+
+## 2026-06-14 — 운영자 Admin Override (서버 검증 기반)
+
+- 명시적 admin mode(숨은 백도어 아님). 운영자가 코드로 로그인 → HMAC 서명 httpOnly `gpb_admin`
+  쿠키 발급 → WS 업그레이드 시 Worker가 쿠키 검증 후 DO에 `adminVerifiedUntil` 전달 →
+  DO는 admin이면 **위치 게이트만** 우회(WRITE_DISABLED·Zod·human·쿨다운·flood guard는 유지).
+- 백엔드:
+  - `worker/src/admin.ts`(신규): `adminEnabled`, sha-256 해시 비교(평문 미저장), `gpb_admin` 쿠키
+    서명/검증(기존 session.ts 재사용), 로그인 실패 IP 레이트리밋(in-memory, 5회/15분 락아웃),
+    라우트 `/api/admin/login|logout|session`.
+  - `index.ts`: `registerAdmin` + `/ws/:roomId`에서 admin 쿠키 검증 → `admin` 쿼리파라미터 전달.
+  - `room-do.ts`: `ConnState.adminVerifiedUntil`, fetch에서 수신, `handlePaint/Stamp/Rename`에서
+    `if (!admin && !gate.canWrite) reject`, admin write는 `auditAdmin`(room/action/time, **좌표 미기록**).
+    `handleJoin`의 canWrite도 admin 반영.
+  - `env.ts`: `ADMIN_OVERRIDE_ENABLED`, `ADMIN_SESSION_TTL_MS`, `ADMIN_SECRET_HASH?`/`ADMIN_SECRET?`.
+  - `wrangler.toml`: `[vars]`에 ENABLED/TTL. secret은 `.dev.vars`/`wrangler secret put`만(미커밋).
+- 프론트: `/admin` 라우트 + `AdminPanel.svelte`(로그인/로그아웃/상태), App에서 `/api/admin/session`
+  로드, MapView에 admin 활성 시 `Admin mode` 배지. (UI는 표시용, 권한은 항상 서버 재검증.)
+- 검증(dev): session{enabled,valid:false} / 코드오답 401·정답 200+쿠키 / 실패 5회→429 /
+  먼 위치 일반=out_of_range, admin=ok(위치우회) / WRITE_DISABLED=true면 admin도 write_disabled /
+  audit 로그 좌표 없음 확인. `pnpm check` 0 errors, `pnpm build` 성공. 임시 테스트 스크립트 정리.

@@ -22,6 +22,12 @@ class AppState {
   turnstileEnabled = $state(false);
   turnstileSiteKey = $state<string | null>(null);
 
+  // Operator admin override (from /api/admin/session). Server-verified — these
+  // flags are display-only; the Worker re-checks the signed cookie on every write.
+  adminEnabled = $state(false);
+  adminActive = $state(false);
+  adminExpiresAt = $state<number | null>(null);
+
   /** Position handed to the next opened room so it can paint immediately. */
   pendingPosition: { lat: number; lng: number; acc: number } | null = null;
   /** First-run onboarding overlay; dismissed via enterApp(). */
