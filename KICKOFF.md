@@ -11,15 +11,28 @@
 - 픽셀 팔레트(32색): `shared/palette.ts` / 보드: `client/src/lib/board/boardRenderer.ts`
 - 화면: `LandingPage.svelte`(랜딩), `VerifyGate.svelte`(/verify), `RoomPanel.svelte`(보드 모달),
   `MapView.svelte`(지도+검색/항공/내위치), `PixelBoard.svelte`(줌·팬·커서), `Palette/MiniMap/Cooldown`.
-- 지도 스타일: `wrangler.toml` `MAP_STYLE_URL`(현재 OpenFreeMap liberty) / `client/src/lib/map/mapStyle.ts`
+- 지도 스타일: 베이스맵 카탈로그 `client/src/lib/map/mapStyle.ts`(`BASEMAPS`: 항공/상세/심플),
+  전환 `mapController.setBaseMap()`. 서버 `wrangler.toml` `MAP_STYLE_URL`(positron) = "심플"용.
+- 파비콘/브랜드 마크: `public/favicon.svg`(= 랜딩 헤더 로고와 동일 픽셀 마크).
 
 ## 현재 디자인 상태
-- 다크 테마, 모달 보드(흰 도화지·격자), 동작별 커서(펜/도장/이동), 국기·스마일 도장, 미니맵, 하단 컴팩트 바.
+- **랜딩**: playful clay(크림 #FFF7E8 배경, 굵은 검정 테두리, 하드 오프셋 그림자, 클레이 카드,
+  원색 포인트, floating badge + 보드 mock). 토큰은 `LandingPage.svelte` `.landing` 스코프 한정.
+- **지도**: 좌하단 `항공/상세/심플` 베이스맵 선택기(기본 항공, 선택 localStorage 기억).
+- **앱/보드**: 여전히 **다크 테마** — 모달 보드(흰 도화지·격자), 동작별 커서, 도장, 미니맵, 하단 바.
+  → 랜딩(클레이)과 앱(다크)의 톤이 아직 분리돼 있음(아래 후보 1 참고).
+
+## 최근 완료 (2026-06-14, 상세는 history.md)
+- 랜딩 다크→클레이 리디자인 / 지도 베이스맵 3종 선택기 + 상세(liberty) 복원 / 파비콘 추가.
 
 ## 다음 후보 (택1로 시작)
-1. 다크 지도 스타일 + 핀/마커 리디자인(핫/일반/내위치) 일관화
-2. 랜딩/Verify/앱 비주얼 톤 통일(타이포·여백·모션 절제)
-3. 보드 모달 반응형(모바일 한 손) + 팔레트/도장 정보구조 정리
+1. **톤 통일 결정**: 앱(지도 UI·Verify·보드 모달)을 랜딩 클레이로 맞출지, 아니면 랜딩만 밝게 둘지.
+   맞춘다면 `app.css` 다크 토큰부터 손대야 함(픽셀 팔레트는 계속 분리 유지).
+2. 핀/마커 리디자인(핫/일반/내위치) — 베이스맵 3종(특히 항공) 위에서 가독·일관성 확보.
+3. 보드 모달 반응형(모바일 한 손) + 팔레트/도장 정보구조 정리.
+
+## 알려진 미해결
+- 로컬 D1 미마이그레이션 시 `/api/rooms` 500(핀 안 뜸) → `pnpm db:migrate:local` + `pnpm db:seed:local`.
 
 ## 가드레일 (디자인 중 깨지면 안 됨)
 - Svelte 5 runes만. 보드는 단일 canvas.

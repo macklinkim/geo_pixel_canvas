@@ -49,7 +49,8 @@ WRITE_DISABLED = "false"
 # Cloudflare Turnstile — human verification for write actions only.
 # Site key is public. The SECRET key is NOT here: set it in .dev.vars (local)
 # or `wrangler secret put TURNSTILE_SECRET_KEY` (production).
-# Test site key (always passes): 1x00000000000000000000AA
+# Production Turnstile SITE key (public — safe to commit). Test key was 1x00000000000000000000AA.
+# The matching SECRET key is NOT here: .dev.vars (local) / `wrangler secret put TURNSTILE_SECRET_KEY` (prod).
 TURNSTILE_ENABLED = "true"
-TURNSTILE_SITE_KEY = "1x00000000000000000000AA"
+TURNSTILE_SITE_KEY = "0x4AAAAAADkjZa5PVzzMQVMV"
 TURNSTILE_SESSION_TTL_MS = "1800000"
