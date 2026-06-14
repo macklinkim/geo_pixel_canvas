@@ -8,7 +8,7 @@
   import type { RoomMeta } from "@shared/room";
   import { getCurrentPosition } from "../lib/geo/browserLocation";
   import { BASEMAPS, DEFAULT_BASEMAP, type BaseMapId } from "../lib/map/mapStyle";
-  import { LocateFixed, Layers, Search, Brush } from "lucide-svelte";
+  import { LocateFixed, Layers, Search, Brush, Images } from "lucide-svelte";
 
   let container: HTMLDivElement;
   let controller: MapController | null = null;
@@ -19,6 +19,13 @@
   let query = $state("");
   let searching = $state(false);
   let searchError = $state(false);
+
+  // "최근 그림" discovery overlay.
+  let recentOpen = $state(false);
+  let recentRooms = $state<RoomMeta[]>([]);
+  let recentLoading = $state(false);
+  let recentError = $state(false);
+  let recentWrap = $state<HTMLDivElement | null>(null);
 
   async function fetchRooms(b: Bbox): Promise<void> {
     const seq = ++reqSeq;
@@ -81,6 +88,64 @@
     }
   }
 
+  // ---- Recent drawings overlay ----
+  async function fetchRecent(): Promise<void> {
+    recentLoading = true;
+    recentError = false;
+    try {
+      const res = await fetch("/api/rooms/recent?limit=5");
+      if (!res.ok) {
+        recentError = true;
+        return;
+      }
+      const data = (await res.json()) as { rooms: RoomMeta[] };
+      recentRooms = data.rooms ?? [];
+    } catch {
+      recentError = true;
+    } finally {
+      recentLoading = false;
+    }
+  }
+
+  function toggleRecent(): void {
+    recentOpen = !recentOpen;
+    if (recentOpen) fetchRecent();
+  }
+
+  // Fly to the picked drawing and open its board in view mode.
+  function openRecent(room: RoomMeta): void {
+    recentOpen = false;
+    controller?.flyTo(room.centerLat, room.centerLng, 18);
+    app.openRoom(room.geohash);
+  }
+
+  function timeAgo(ts: number): string {
+    const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+    if (s < 60) return "방금 전";
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}분 전`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}시간 전`;
+    return `${Math.floor(h / 24)}일 전`;
+  }
+
+  // Close the overlay on outside click or Escape.
+  $effect(() => {
+    if (!recentOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (recentWrap && !recentWrap.contains(e.target as Node)) recentOpen = false;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") recentOpen = false;
+    };
+    window.addEventListener("pointerdown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  });
+
   onMount(() => {
     controller = new MapController(container, app.mapStyleUrl, {
       onMoveEnd: (b) => fetchRooms(b),
@@ -138,6 +203,40 @@
   <button class="btn primary" onclick={drawHere} disabled={locating}>
     <Brush size={16} /> 내 위치에 그리기
   </button>
+
+  <div class="recent-wrap" bind:this={recentWrap}>
+    {#if recentOpen}
+      <div class="recent-panel" role="dialog" aria-label="최근 생성된 그림">
+        <div class="recent-head">최근 생성된 그림</div>
+        {#if recentLoading}
+          <p class="recent-msg">불러오는 중…</p>
+        {:else if recentError}
+          <p class="recent-msg">
+            불러오지 못했어요.
+            <button class="recent-retry" onclick={fetchRecent}>다시 시도</button>
+          </p>
+        {:else if recentRooms.length === 0}
+          <p class="recent-msg">아직 그림이 없어요.</p>
+        {:else}
+          <ul class="recent-list">
+            {#each recentRooms as room (room.geohash)}
+              <li>
+                <button class="recent-item" onclick={() => openRecent(room)}>
+                  <span class="recent-name">{room.name ?? `근처 그림 #${room.geohash}`}</span>
+                  <span class="recent-meta">
+                    {room.pixelCount.toLocaleString()} 픽셀 · {timeAgo(room.lastDrawnAt)}
+                  </span>
+                </button>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    {/if}
+    <button class="btn" onclick={toggleRecent} aria-expanded={recentOpen}>
+      <Images size={16} /> 최근 그림
+    </button>
+  </div>
 </div>
 
 <style>
@@ -187,7 +286,11 @@
     bottom: 28px;
     z-index: 5;
     display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
     gap: 8px;
+    /* Shrink-wrap to the buttons, but wrap instead of overflowing on mobile. */
+    max-width: calc(100vw - 24px);
   }
   .map-controls .btn {
     box-shadow: var(--shadow);
@@ -230,5 +333,83 @@
     border-color: var(--accent);
     color: #fff;
     font-weight: 600;
+  }
+
+  /* ---- recent drawings overlay ---- */
+  .recent-wrap {
+    position: relative;
+    display: inline-flex;
+  }
+  .recent-panel {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 8px);
+    width: min(78vw, 300px);
+    max-height: min(60vh, 360px);
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 8px;
+  }
+  .recent-head {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 4px 6px 8px;
+  }
+  .recent-msg {
+    margin: 0;
+    padding: 8px 6px 10px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .recent-retry {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font: inherit;
+    font-weight: 600;
+    padding: 0 2px;
+    text-decoration: underline;
+  }
+  .recent-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .recent-item {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    text-align: left;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 8px;
+    color: var(--text);
+    transition: background 0.12s ease;
+  }
+  .recent-item:hover {
+    background: var(--surface-2);
+  }
+  .recent-name {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .recent-meta {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
   }
 </style>

@@ -206,3 +206,18 @@
   탭 ↔ 인앱 로고가 하나의 정체성. 아트 PALETTE 색을 그대로 사용.
 - SVG 단일 파일(모던 브라우저용). 흰/검정/크림 탭 배경 모두에서 가독 확인(16~128px 프리뷰).
 - 검증: `pnpm check` 0 errors(이전 단계), `pnpm build` 성공 → `dist/client/favicon.svg` 번들 확인.
+
+## 2026-06-14 — 최근 그림 탐색 UI (지도 좌하단)
+
+- 백엔드 `worker/src/rooms.ts`: `GET /api/rooms/recent?limit=5` 추가.
+  - `pixel_count > 0` 필터(빈 셀 제외) + `ORDER BY created_at DESC`(버튼 라벨 "최근 생성된 그림" 기준).
+  - 응답 `{ rooms: RoomMeta[] }`. D1 인덱스만 읽고 DO는 건드리지 않음. 읽기 기능이라 Turnstile 없음.
+  - `limit` Zod 검증(int 1..20, 기본 5) — 초과 시 400.
+- 프론트 `client/src/components/MapView.svelte`: "내 위치에 그리기" 우측에 `최근 그림` 버튼(lucide Images).
+  클릭 시 위로 확장되는 오버레이(이름/픽셀수/상대시간 `timeAgo`), 항목 클릭 → `flyTo`(z18) + `app.openRoom`.
+  - 바깥 클릭/Esc 닫기($effect), 이름 null이면 "근처 그림 #<geohash>" 폴백, 로딩/에러(다시 시도)/빈 상태 처리.
+  - `.map-controls`에 `flex-wrap`+`max-width:calc(100vw-24px)` → 모바일에서 가로 스크롤 없이 줄바꿈.
+- 범위: 탐색 UI만. PNG/썸네일/R2/다운로드는 백로그(docs/ARTWORK_GALLERY_BACKLOG.md)에 남김.
+- 검증: `pnpm check` 0 errors, `pnpm build` 성공. 로컬 D1 migrate+seed 후 `/api/rooms/recent` 4건 반환
+  (빈 '서울역 앞' 제외, null 이름 포함), limit=999 → 400. dev에서 desktop/mobile 오버레이 열기 →
+  '시청 광장' 클릭 → 지도 이동 + 해당 방 모달 오픈 확인.

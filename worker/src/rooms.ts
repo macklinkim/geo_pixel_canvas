@@ -38,6 +38,10 @@ const createBody = z.object({
 
 const verifyBody = z.object({ token: z.string().max(2048).optional() });
 
+const recentQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(20).default(5),
+});
+
 interface RoomRow {
   geohash: string;
   precision: number;
@@ -148,6 +152,24 @@ export function registerRooms(app: Hono<{ Bindings: Env }>): void {
        LIMIT 500`,
     )
       .bind(q.minLat, q.maxLat, q.minLng, q.maxLng)
+      .all<RoomRow>();
+
+    return c.json({ rooms: results.map(rowToMeta) });
+  });
+
+  // Recently created drawings (global), newest first. Read-only discovery — no
+  // Turnstile. Filters out empty cells so the list is actual artwork. Reads only
+  // the lightweight D1 index, never the per-room Durable Objects.
+  app.get("/api/rooms/recent", zValidator("query", recentQuery), async (c) => {
+    const { limit } = c.req.valid("query");
+    const { results } = await c.env.DB.prepare(
+      `SELECT geohash, precision, center_lat, center_lng, name, pixel_count, last_drawn_at
+       FROM rooms
+       WHERE pixel_count > 0
+       ORDER BY created_at DESC
+       LIMIT ?1`,
+    )
+      .bind(limit)
       .all<RoomRow>();
 
     return c.json({ rooms: results.map(rowToMeta) });
