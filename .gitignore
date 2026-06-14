@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.wrangler/
+.claude/
+.playwright-mcp/
+.dev.vars
+*.local
+.DS_Store
+*.log
+tools/mcp/dist/

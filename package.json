@@ -1,0 +1,38 @@
+{
+  "name": "geo-pixel-board",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.json && tsc -p worker/tsconfig.json --noEmit && tsc -p shared/tsconfig.json --noEmit",
+    "deploy": "vite build && wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply geo_pixel_board --local",
+    "db:migrate:remote": "wrangler d1 migrations apply geo_pixel_board --remote",
+    "db:seed:local": "wrangler d1 execute geo_pixel_board --local --file=worker/seed.sql",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.0.0",
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "@types/node": "^25.9.3",
+    "prettier": "^3.4.2",
+    "prettier-plugin-svelte": "^3.3.2",
+    "svelte": "^5.16.0",
+    "svelte-check": "^4.1.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7",
+    "wrangler": "^4.0.0"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.4.2",
+    "hono": "^4.6.15",
+    "lucide-svelte": "^0.469.0",
+    "maplibre-gl": "^5.0.0",
+    "zod": "^3.24.1"
+  }
+}
